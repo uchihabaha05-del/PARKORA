@@ -1686,9 +1686,9 @@ func _service_queue_can_start(kind: String, index: int, order: int) -> bool:
 func _service_building_load(kind: String, index: int) -> int:
 	var load := 0
 	for visitor in visitors:
-		if kind in ["food", "drink"] and int(visitor.get("shop_index", -1)) == index and str(visitor.get("state", "")) in ["walking_to_shop", "shopping"]:
+		if kind in ["food", "drink"] and int(visitor.get("shop_index", -1)) == index and str(visitor.get("state", "")) in ["walking_to_shop", "waiting_for_shop", "shopping"]:
 			load += 1
-		elif kind in ["toilet", "rest"] and int(visitor.get("facility_index", -1)) == index and str(visitor.get("state", "")) in ["walking_to_facility", "using_facility"]:
+		elif kind in ["toilet", "rest"] and int(visitor.get("facility_index", -1)) == index and str(visitor.get("state", "")) in ["walking_to_facility", "waiting_for_facility", "using_facility"]:
 			load += 1
 	return load
 
