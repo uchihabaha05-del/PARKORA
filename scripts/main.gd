@@ -1056,15 +1056,13 @@ func _apply_offline_progress(raw_elapsed_seconds: int) -> void:
 			open_ride_indices.append(i)
 			condition_total += condition
 			ticket_total += float(ride.get("ticket_price", RIDE_TICKET_PRICE))
-	if open_ride_indices.is_empty():
-		offline_notice = "Парк был закрыт: нет исправных аттракционов. Офлайн-дохода нет."
-		return
-	var average_condition := condition_total / float(open_ride_indices.size())
-	var average_ticket := ticket_total / float(open_ride_indices.size())
+	var has_open_rides := not open_ride_indices.is_empty()
+	var average_condition := condition_total / float(open_ride_indices.size()) if has_open_rides else 0.0
+	var average_ticket := ticket_total / float(open_ride_indices.size()) if has_open_rides else 0.0
 	var demand_factor := clampf(0.45 + park_rating / 200.0, 0.45, 0.95)
 	var cleanliness_factor := lerpf(0.25, 1.0, cleanliness / 100.0)
 	var condition_factor := lerpf(0.35, 1.0, average_condition / 100.0)
-	var visitors_per_hour := int(minf(120.0, float(open_ride_indices.size()) * 28.0) * demand_factor * cleanliness_factor * condition_factor)
+	var visitors_per_hour := int(minf(120.0, float(open_ride_indices.size()) * 28.0) * demand_factor * cleanliness_factor * condition_factor) if has_open_rides else 0
 	var estimated_visitors := int(float(visitors_per_hour) * float(elapsed) / 3600.0)
 	var admission_gain := estimated_visitors * ENTRY_TICKET_PRICE
 	var ride_gain := int(round(float(estimated_visitors) * average_ticket))
@@ -1079,7 +1077,8 @@ func _apply_offline_progress(raw_elapsed_seconds: int) -> void:
 	var upkeep_per_tick := staff_per_tick + facility_per_tick + ride_per_tick
 	var upkeep_ticks := int(elapsed / 10)
 	var gross_expenses := upkeep_per_tick * upkeep_ticks
-	coins = maxi(0, coins + gross_income - gross_expenses)
+	var starting_cash := coins
+	coins = maxi(0, starting_cash + gross_income - gross_expenses)
 	total_visitors += estimated_visitors
 	total_income += gross_income
 	total_expenses += gross_expenses
@@ -1104,13 +1103,17 @@ func _apply_offline_progress(raw_elapsed_seconds: int) -> void:
 	var litter_created := estimated_visitors
 	var litter_cleaned := mini(litter_created, cleaners * upkeep_ticks)
 	cleanliness = clampf(cleanliness + float(litter_cleaned) * 2.5 - float(litter_created - litter_cleaned) * 1.2, 0.0, 100.0)
-	if gross_expenses > coins + gross_income:
-		park_rating = maxf(0.0, park_rating - minf(15.0, float(gross_expenses - (coins + gross_income)) / 500.0))
+	if gross_expenses > starting_cash + gross_income:
+		var unpaid_cost := gross_expenses - (starting_cash + gross_income)
+		park_rating = maxf(0.0, park_rating - minf(15.0, float(unpaid_cost) / 500.0))
 	offline_earnings = gross_income
 	offline_costs = gross_expenses
 	var net_result := gross_income - gross_expenses
 	var hours_text := "%.1f" % (float(elapsed) / 3600.0)
-	offline_notice = "Парк работал офлайн " + hours_text + " ч. Доход +" + _format_number(gross_income) + " • расходы −" + _format_number(gross_expenses) + " • итог " + ("+" if net_result >= 0 else "−") + _format_number(absi(net_result)) + " монет"
+	if has_open_rides:
+		offline_notice = "Парк работал офлайн " + hours_text + " ч. Доход +" + _format_number(gross_income) + " • расходы −" + _format_number(gross_expenses) + " • итог " + ("+" if net_result >= 0 else "−") + _format_number(absi(net_result)) + " монет"
+	else:
+		offline_notice = "Парк был закрыт " + hours_text + " ч. Дохода не было; содержание обошлось в " + _format_number(gross_expenses) + " монет"
 	_update_hud()
 
 
