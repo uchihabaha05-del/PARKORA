@@ -235,6 +235,159 @@ func _create_ui() -> void:
 	_add_clear_button(row)
 
 
+func _create_ride_management_panel(root: Control) -> void:
+	ride_panel = PanelContainer.new()
+	ride_panel.anchor_left = 1.0
+	ride_panel.anchor_right = 1.0
+	ride_panel.anchor_top = 0.0
+	ride_panel.anchor_bottom = 0.0
+	ride_panel.offset_left = -292
+	ride_panel.offset_right = -18
+	ride_panel.offset_top = 18
+	ride_panel.offset_bottom = 218
+	ride_panel.visible = false
+	var panel_style := StyleBoxFlat.new()
+	panel_style.bg_color = Color(0.07, 0.13, 0.17, 0.94)
+	panel_style.set_corner_radius_all(14)
+	panel_style.content_margin_left = 12
+	panel_style.content_margin_right = 12
+	panel_style.content_margin_top = 10
+	panel_style.content_margin_bottom = 10
+	ride_panel.add_theme_stylebox_override("panel", panel_style)
+	root.add_child(ride_panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 7)
+	ride_panel.add_child(column)
+	ride_info_label = Label.new()
+	ride_info_label.add_theme_font_size_override("font_size", 15)
+	ride_info_label.add_theme_color_override("font_color", Color.WHITE)
+	column.add_child(ride_info_label)
+	var price_row := HBoxContainer.new()
+	price_row.add_theme_constant_override("separation", 6)
+	column.add_child(price_row)
+	var lower_button := Button.new()
+	lower_button.text = "− Цена"
+	lower_button.custom_minimum_size = Vector2(82, 36)
+	lower_button.pressed.connect(_change_ride_price.bind(-5))
+	price_row.add_child(lower_button)
+	ride_price_label = Label.new()
+	ride_price_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	ride_price_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	ride_price_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	ride_price_label.add_theme_color_override("font_color", Color("#ffe28a"))
+	price_row.add_child(ride_price_label)
+	var raise_button := Button.new()
+	raise_button.text = "+ Цена"
+	raise_button.custom_minimum_size = Vector2(82, 36)
+	raise_button.pressed.connect(_change_ride_price.bind(5))
+	price_row.add_child(raise_button)
+	ride_upgrade_button = Button.new()
+	ride_upgrade_button.text = "Улучшить"
+	ride_upgrade_button.custom_minimum_size = Vector2(0, 38)
+	ride_upgrade_button.pressed.connect(_upgrade_selected_ride)
+	column.add_child(ride_upgrade_button)
+	var close_button := Button.new()
+	close_button.text = "Закрыть"
+	close_button.custom_minimum_size = Vector2(0, 32)
+	close_button.pressed.connect(_close_ride_panel)
+	column.add_child(close_button)
+
+
+func _select_ride_at_position(world_position: Vector3) -> void:
+	var nearest := -1
+	var nearest_distance := 5.0
+	for i in range(rides.size()):
+		var ride_position: Vector3 = rides[i]["position"]
+		var distance := Vector2(world_position.x, world_position.z).distance_to(Vector2(ride_position.x, ride_position.z))
+		if distance < nearest_distance:
+			nearest_distance = distance
+			nearest = i
+	if nearest >= 0:
+		selected_ride_index = nearest
+		ride_panel.visible = true
+		_update_ride_panel()
+		_set_hint("Аттракцион выбран. Настраивай цену и улучшения")
+	else:
+		_close_ride_panel()
+
+
+func _close_ride_panel() -> void:
+	selected_ride_index = -1
+	if ride_panel != null:
+		ride_panel.visible = false
+
+
+func _update_ride_panel() -> void:
+	if selected_ride_index < 0 or selected_ride_index >= rides.size():
+		_close_ride_panel()
+		return
+	var ride: Dictionary = rides[selected_ride_index]
+	var ride_name := "Карусель" if ride["kind"] == "carousel" else "Колесо обозрения"
+	var level := int(ride.get("level", 1))
+	var capacity := int(ride.get("queue_capacity", 6))
+	var duration := float(ride.get("ride_duration", 4.0))
+	var price := int(ride.get("ticket_price", RIDE_TICKET_PRICE))
+	ride_info_label.text = ride_name + "  •  Ур. " + str(level) + "\nОчередь: " + str(capacity) + " мест   •   Катание: " + str(snappedf(duration, 0.1)) + " сек."
+	ride_price_label.text = "🪙 " + str(price)
+	if level >= 3:
+		ride_upgrade_button.text = "Максимальный уровень"
+		ride_upgrade_button.disabled = true
+	else:
+		var upgrade_cost := level * 1000
+		ride_upgrade_button.text = "Улучшить  •  🪙 " + _format_number(upgrade_cost)
+		ride_upgrade_button.disabled = coins < upgrade_cost
+
+
+func _change_ride_price(amount: int) -> void:
+	if selected_ride_index < 0 or selected_ride_index >= rides.size():
+		return
+	var ride: Dictionary = rides[selected_ride_index]
+	ride["ticket_price"] = clampi(int(ride.get("ticket_price", RIDE_TICKET_PRICE)) + amount, 5, 200)
+	rides[selected_ride_index] = ride
+	_sync_ride_save(selected_ride_index)
+	_update_ride_panel()
+	_save_game()
+
+
+func _upgrade_selected_ride() -> void:
+	if selected_ride_index < 0 or selected_ride_index >= rides.size():
+		return
+	var ride: Dictionary = rides[selected_ride_index]
+	var level := int(ride.get("level", 1))
+	if level >= 3:
+		return
+	var cost := level * 1000
+	if coins < cost:
+		_set_hint("Недостаточно монет для улучшения")
+		return
+	coins -= cost
+	ride["level"] = level + 1
+	ride["queue_capacity"] = int(ride.get("queue_capacity", 6)) + 2
+	ride["ride_duration"] = maxf(2.0, float(ride.get("ride_duration", 4.0)) * 0.9)
+	rides[selected_ride_index] = ride
+	_sync_ride_save(selected_ride_index)
+	_update_hud()
+	_update_ride_panel()
+	_save_game()
+	_set_hint("Аттракцион улучшен до уровня " + str(level + 1))
+
+
+func _sync_ride_save(ride_index: int) -> void:
+	if ride_index < 0 or ride_index >= rides.size():
+		return
+	var ride: Dictionary = rides[ride_index]
+	var position: Vector3 = ride["position"]
+	for i in range(built_objects.size()):
+		var saved: Dictionary = built_objects[i]
+		if saved.get("type", "") == ride["kind"] and saved.get("position", Vector3.ZERO).distance_to(position) < 0.1:
+			saved["level"] = int(ride.get("level", 1))
+			saved["ticket_price"] = int(ride.get("ticket_price", RIDE_TICKET_PRICE))
+			saved["queue_capacity"] = int(ride.get("queue_capacity", 6))
+			saved["ride_duration"] = float(ride.get("ride_duration", 4.0))
+			built_objects[i] = saved
+			return
+
+
 func _add_build_button(parent: HBoxContainer, caption: String, build_type: String) -> void:
 	var button := Button.new()
 	button.text = caption
@@ -347,7 +500,14 @@ func _place_selected(position: Vector3) -> void:
 		"food", "drink":
 			_create_shop(selected_build, position)
 	coins -= cost
-	built_objects.append({"type": selected_build, "position": position})
+	var saved_ride := {"type": selected_build, "position": position}
+	if selected_build in ["carousel", "ferris"] and not rides.is_empty():
+		var new_ride: Dictionary = rides[rides.size() - 1]
+		saved_ride["level"] = int(new_ride.get("level", 1))
+		saved_ride["ticket_price"] = int(new_ride.get("ticket_price", RIDE_TICKET_PRICE))
+		saved_ride["queue_capacity"] = int(new_ride.get("queue_capacity", 6))
+		saved_ride["ride_duration"] = float(new_ride.get("ride_duration", 4.0))
+	built_objects.append(saved_ride)
 	_save_game()
 	_update_hud()
 	_set_hint(_build_name(selected_build) + " построено! 🪙 " + str(coins))
@@ -449,7 +609,14 @@ func _load_game() -> void:
 				_register_path(object_position)
 			"food", "drink":
 				_create_shop(object_type, object_position)
-		built_objects.append({"type": object_type, "position": object_position})
+		if object_type in ["carousel", "ferris"] and not rides.is_empty():
+			var restored_ride: Dictionary = rides[rides.size() - 1]
+			restored_ride["level"] = int(saved_object.get("level", 1))
+			restored_ride["ticket_price"] = int(saved_object.get("ticket_price", RIDE_TICKET_PRICE))
+			restored_ride["queue_capacity"] = int(saved_object.get("queue_capacity", 6))
+			restored_ride["ride_duration"] = float(saved_object.get("ride_duration", restored_ride.get("ride_duration", 4.0)))
+			rides[rides.size() - 1] = restored_ride
+		built_objects.append(saved_object.duplicate(true))
 
 
 func _save_game() -> void:
@@ -876,6 +1043,8 @@ func _update_hud() -> void:
 		coins_label.text = "PARKORA   🪙 " + _format_number(coins)
 	if visitors_label != null:
 		visitors_label.text = "👥 " + str(visitors.size()) + " / " + str(MAX_VISITORS) + "    Всего: " + str(total_visitors) + "    ⭐ " + str(roundi(park_rating)) + "    В очередях: " + str(_total_queued_visitors())
+	if ride_panel != null and ride_panel.visible:
+		_update_ride_panel()
 	if economy_label != null:
 		var net_profit := total_income - total_expenses
 		economy_label.text = "Выручка: 🪙 " + _format_number(total_income) + "   Расходы: 🪙 " + _format_number(total_expenses) + "   Прибыль: 🪙 " + _format_number(net_profit)
