@@ -25,7 +25,8 @@ The player starts with a small, underdeveloped amusement park and personally tur
 
 ### 1. Construction and land expansion
 - Grid-based placement with clear occupied tiles and path connections.
-- New land sections unlock progressively and have meaningful prices.
+- New land sections unlock progressively and have meaningful prices; the prototype begins with a central plot and offers north, west, and east expansions.
+- Construction is restricted to owned plots; purchased boundaries are shown in-world and unlock state is saved.
 - Facilities need pedestrian access; paths must connect to the entrance.
 - Layout matters: visitors should not need to cross the entire park for basic needs.
 
@@ -72,4 +73,4 @@ The player starts with a small, underdeveloped amusement park and personally tur
 
 ## Current implementation status
 
-PARKORA is still a prototype. It currently has a procedural park, path-based routefinding, two rides, visitor queues, configurable ride prices and upgrades, attraction condition and repair, food/drink kiosks, individual hunger/thirst needs, buildable toilets and rest areas, individual hygiene/rest needs, visitor-paid facility use, cleaner and mechanic hiring, litter and cleanliness simulation, recurring staff wages and facility upkeep, automatic mechanic maintenance, categorized lifetime income and operating expenses, a rolling one-minute profit report, six sequential rewarded park objectives with saved progress, and local save/restore of built objects and park finances. These systems are scaffolding, not the final management simulation. Runtime validation in Godot is still required.
+PARKORA is still a prototype. It currently has a procedural park, path-based routefinding, two rides, visitor queues, configurable ride prices and upgrades, attraction condition and repair, food/drink kiosks, individual hunger/thirst needs, buildable toilets and rest areas, individual hygiene/rest needs, visitor-paid facility use, cleaner and mechanic hiring, litter and cleanliness simulation, recurring staff wages and facility upkeep, automatic mechanic maintenance, categorized lifetime income and operating expenses, a rolling one-minute profit report, six sequential rewarded park objectives with saved progress, three purchasable land expansions with ownership-gated construction, and local save/restore of built objects and park finances. These systems are scaffolding, not the final management simulation. Runtime validation in Godot is still required.
