@@ -68,6 +68,7 @@ var guest_feedback_count := 0
 var positive_reviews := 0
 var negative_reviews := 0
 var guest_satisfaction := 75.0
+var service_sequence := 0
 
 var grass_material: StandardMaterial3D
 var path_material: StandardMaterial3D
@@ -1639,6 +1640,18 @@ func _record_visitor_feedback(visitor: Dictionary) -> void:
 	else:
 		park_rating = clampf(park_rating + (score - 60.0) * 0.008, 0.0, 100.0)
 	_update_hud()
+
+func _service_queue_can_start(kind: String, index: int, order: int) -> bool:
+	for visitor in visitors:
+		var state := str(visitor.get("state", ""))
+		var same_shop := kind in ["food", "drink"] and int(visitor.get("shop_index", -1)) == index
+		var same_facility := kind in ["toilet", "rest"] and int(visitor.get("facility_index", -1)) == index
+		if same_shop and state == "shopping" or same_facility and state == "using_facility":
+			return false
+		if (same_shop and state == "waiting_for_shop" or same_facility and state == "waiting_for_facility") and int(visitor.get("service_order", 0)) < order:
+			return false
+	return true
+
 
 func _service_building_load(kind: String, index: int) -> int:
 	var load := 0
