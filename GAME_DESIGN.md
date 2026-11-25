@@ -53,7 +53,9 @@ The player starts with a small, underdeveloped amusement park and personally tur
 - Show a rolling one-minute operating report with income, expenses, and net profit, alongside lifetime totals.
 - Persist the categorized ledger and current reporting window in the local save so the financial picture survives a restart.
 - Keep one-off construction, hiring, upgrades, and manual repairs distinct from recurring operating expenses.
-- Offline earnings must be calculated from elapsed time with a cap and sensible operating costs; do not grant unlimited profit if the park would have run out of cash or broken down.
+- Offline earnings are calculated from elapsed wall-clock time, capped at 8 hours per absence, and use conservative visitor demand, ride condition, cleanliness, ticket prices, service sales, staff wages, and facility upkeep.
+- Offline income and expenses update the same lifetime ledger as active play. Closed attractions generate no visitors; upkeep still applies, cash cannot fall below zero, and unpaid costs reduce park rating.
+- Save the last successful game timestamp and apply offline settlement once on the next load, then reset the timestamp to prevent repeated claims.
 - Balance the early game so the player can understand why the park is earning or losing money.
 
 ### 6. Progression and goals
@@ -73,4 +75,4 @@ The player starts with a small, underdeveloped amusement park and personally tur
 
 ## Current implementation status
 
-PARKORA is still a prototype. It currently has a procedural park, path-based routefinding, two rides, visitor queues, configurable ride prices and upgrades, attraction condition and repair, food/drink kiosks, individual hunger/thirst needs, buildable toilets and rest areas, individual hygiene/rest needs, visitor-paid facility use, cleaner and mechanic hiring, litter and cleanliness simulation, recurring staff wages and facility upkeep, automatic mechanic maintenance, categorized lifetime income and operating expenses, a rolling one-minute profit report, six sequential rewarded park objectives with saved progress, three purchasable land expansions with ownership-gated construction, and local save/restore of built objects and park finances. These systems are scaffolding, not the final management simulation. Runtime validation in Godot is still required.
+PARKORA is still a prototype. It currently has a procedural park, path-based routefinding, two rides, visitor queues, configurable ride prices and upgrades, attraction condition and repair, food/drink kiosks, individual hunger/thirst needs, buildable toilets and rest areas, individual hygiene/rest needs, visitor-paid facility use, cleaner and mechanic hiring, litter and cleanliness simulation, recurring staff wages and facility upkeep, automatic mechanic maintenance, categorized lifetime income and operating expenses, a rolling one-minute profit report, six sequential rewarded park objectives with saved progress, three purchasable land expansions with ownership-gated construction, capped eight-hour offline earnings with operating expenses and attraction wear, and local save/restore of built objects and park finances. These systems are scaffolding, not the final management simulation. Runtime validation in Godot is still required.
