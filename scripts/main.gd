@@ -913,7 +913,7 @@ func _create_shop(shop_type: String, position: Vector3) -> void:
 	_add_box_local(kiosk, Vector3(0, 1.75, 0), Vector3(2.5, 0.18, 2.1), cream_material)
 	_add_box_local(kiosk, Vector3(0, 2.35, 0), Vector3(2.6, 0.18, 2.2), yellow_material)
 	_add_box_local(kiosk, Vector3(0, 2.05, -0.85), Vector3(2.5, 0.55, 0.12), green_material if shop_type == "food" else blue_material)
-	shops.append({"kind": shop_type, "position": position, "timer": 5.0, "served": 0})
+	shops.append({"kind": shop_type, "position": position, "timer": 5.0, "served": 0, "revenue": 0})
 
 func _create_facility(facility_type: String, position: Vector3) -> void:
 	var building := Node3D.new()
@@ -931,7 +931,7 @@ func _create_facility(facility_type: String, position: Vector3) -> void:
 		_add_box_local(building, Vector3(0, 1.65, 0), Vector3(3.2, 0.18, 1.9), green_material)
 		for i in range(3):
 			_add_cylinder_local(building, Vector3(-0.8 + float(i) * 0.8, 0.9, 0), 0.08, 1.0, wood_material)
-	facilities.append({"kind": facility_type, "position": position, "served": 0})
+	facilities.append({"kind": facility_type, "position": position, "served": 0, "revenue": 0})
 
 
 func _create_tree(position: Vector3) -> void:
@@ -1048,6 +1048,12 @@ func _load_game() -> void:
 				_create_shop(object_type, object_position)
 			"toilet", "rest":
 				_create_facility(object_type, object_position)
+		if object_type in ["food", "drink"] and not shops.is_empty():
+			shops[shops.size() - 1]["served"] = int(saved_object.get("served", 0))
+			shops[shops.size() - 1]["revenue"] = int(saved_object.get("revenue", 0))
+		if object_type in ["toilet", "rest"] and not facilities.is_empty():
+			facilities[facilities.size() - 1]["served"] = int(saved_object.get("served", 0))
+			facilities[facilities.size() - 1]["revenue"] = int(saved_object.get("revenue", 0))
 		if object_type in ["carousel", "ferris"] and not rides.is_empty():
 			var restored_ride: Dictionary = rides[rides.size() - 1]
 			restored_ride["level"] = int(saved_object.get("level", 1))
@@ -1525,6 +1531,8 @@ func _update_visitors(delta: float) -> void:
 					service_income += sale_price
 					period_income += sale_price
 					shops[shop_index]["served"] += 1
+					shops[shop_index]["revenue"] = int(shops[shop_index].get("revenue", 0)) + sale_price
+					_sync_service_object_save(str(shops[shop_index]["kind"]), shops[shop_index]["position"], shops[shop_index])
 					if shop_kind == "food":
 						visitor["hunger"] = 0.0
 					else:
@@ -1563,6 +1571,8 @@ func _update_visitors(delta: float) -> void:
 					service_income += service_price
 					period_income += service_price
 					facilities[facility_index]["served"] = int(facilities[facility_index].get("served", 0)) + 1
+					facilities[facility_index]["revenue"] = int(facilities[facility_index].get("revenue", 0)) + service_price
+					_sync_service_object_save(str(facilities[facility_index]["kind"]), facilities[facility_index]["position"], facilities[facility_index])
 					if facility_kind == "toilet":
 						visitor["hygiene"] = 0.0
 					else:
@@ -1787,7 +1797,27 @@ func _update_hud() -> void:
 	if economy_label != null:
 		var lifetime_profit := total_income - total_expenses
 		var period_profit := period_income - period_expenses
-		economy_label.text = "Доход: вход " + _format_number(admission_income) + " | аттракционы " + _format_number(ride_income) + " | услуги " + _format_number(service_income) + "\nРасходы: персонал " + _format_number(staff_expenses) + " | объекты " + _format_number(facility_expenses) + " | аттракционы " + _format_number(ride_maintenance_expenses) + "\nЗа минуту: доход +" + _format_number(period_income) + " / расход −" + _format_number(period_expenses) + " / итог " + ("+" if period_profit >= 0 else "−") + _format_number(absi(period_profit)) + "   Всего: " + ("+" if lifetime_profit >= 0 else "−") + _format_number(absi(lifetime_profit))
+		economy_label.text = "Доход: вход " + _format_number(admission_income) + " | аттракционы " + _format_number(ride_income) + " | услуги " + _format_number(service_income) + "\nРасходы: персонал " + _format_number(staff_expenses) + " | объекты " + _format_number(facility_expenses) + " | аттракционы " + _format_number(ride_maintenance_expenses) + "\nЗа минуту: доход +" + _format_number(period_income) + " / расход −" + _format_number(period_expenses) + " / итог " + ("+" if period_profit >= 0 else "−") + _format_number(absi(period_profit)) + "   Всего: " + ("+" if lifetime_profit >= 0 else "−") + _format_number(absi(lifetime_profit)) + "\n" + _service_object_report()
+
+
+func _sync_service_object_save(kind: String, position: Vector3, data: Dictionary) -> void:
+	for i in range(built_objects.size()):
+		var saved: Dictionary = built_objects[i]
+		if saved.get("type", "") == kind and saved.get("position", Vector3.ZERO).distance_to(position) < 0.1:
+			saved["served"] = int(data.get("served", 0))
+			saved["revenue"] = int(data.get("revenue", 0))
+			built_objects[i] = saved
+			return
+
+
+func _service_object_report() -> String:
+	var top := "нет объектов"
+	var revenue := 0
+	for item in shops + facilities:
+		if int(item.get("revenue", 0)) > revenue:
+			revenue = int(item.get("revenue", 0))
+			top = str(item.get("kind", "объект"))
+	return "Лидер по выручке: " + top + " • 🪙 " + _format_number(revenue)
 
 
 func _count_facilities(kind: String) -> int:
