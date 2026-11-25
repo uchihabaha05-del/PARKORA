@@ -558,20 +558,30 @@ func _update_visitors(delta: float) -> void:
 				coins += RIDE_TICKET_PRICE
 				total_income += RIDE_TICKET_PRICE
 				visitor["state"] = "leaving"
-				visitor["target"] = Vector3(randf_range(-1.0, 1.0), 0, 16.0)
+				visitor["target"] = Vector3(0, 0, 16.0)
+				visitor["route"] = _find_path(person.position, visitor["target"])
+				visitor["route_index"] = 0
 				_update_hud()
 				_set_hint("Катание завершено! +🪙 " + str(RIDE_TICKET_PRICE))
 		elif visitor["state"] == "leaving":
-			var exit_target: Vector3 = visitor["target"]
-			var exit_direction := exit_target - person.position
-			exit_direction.y = 0.0
-			if exit_direction.length() < 0.8:
+			var exit_route: Array = visitor["route"]
+			if exit_route.is_empty():
 				person.queue_free()
 				visitors.remove_at(i)
 				_update_hud()
+				continue
+			var exit_waypoint: Vector3 = exit_route[visitor["route_index"]]
+			var exit_direction: Vector3 = exit_waypoint - person.position
+			exit_direction.y = 0.0
+			if exit_direction.length() < 0.3:
+				visitor["route_index"] += 1
+				if visitor["route_index"] >= exit_route.size():
+					person.queue_free()
+					visitors.remove_at(i)
+					_update_hud()
 			else:
 				person.position += exit_direction.normalized() * delta * 2.4
-				person.look_at(Vector3(exit_target.x, person.position.y, exit_target.z), Vector3.UP)
+				person.look_at(Vector3(exit_waypoint.x, person.position.y, exit_waypoint.z), Vector3.UP)
 
 
 func _add_box(position: Vector3, size: Vector3, material: Material) -> MeshInstance3D:
