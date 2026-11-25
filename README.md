@@ -27,7 +27,9 @@ PARKORA uses **ThemeParkManager by Supercent** as its primary gameplay reference
 - Attractions require a nearby connected pedestrian path
 - Coin economy with entrance and ride ticket income
 - Recurring attraction and kiosk maintenance costs, cash-flow tracking, and lifetime revenue/expense/net-profit HUD
-- Food and drink kiosks selected by individual visitors according to hunger/thirst, reachable path, and walking distance
+- Food and drink kiosks selected by individual visitors according to hunger/thirst, affordability, reachable path, and walking distance
+- Buildable toilet and rest facilities with distinct visitor needs, service prices, routefinding, usage time, income, and recurring upkeep
+- Visitors track hygiene and rest needs and choose an affordable reachable facility when the need is high
 - Visitors physically walk to a selected kiosk, purchase once, satisfy the corresponding need, and then leave
 - Automatic local save/restore of park funds, visitor totals, rating, finances, and player-built objects
 - Basic attraction unlock progression
@@ -44,4 +46,4 @@ PARKORA uses **ThemeParkManager by Supercent** as its primary gameplay reference
 - Mouse wheel / pinch: zoom
 - Select a construction item, then tap/click the ground to place it
 
-The project is an early playable foundation. Park progress is saved locally in `user://parkora_save.cfg` and restored when the game starts. Android export and APK packaging are intentionally deferred. The current visitor AI and economy are scaffolding. The next development stages will expand individual visitor needs and decisions, then add attraction pricing/upgrades, staff, toilets/rest areas, land expansion, and balanced offline earnings.
+The project is an early playable foundation. Park progress is saved locally in `user://parkora_save.cfg` and restored when the game starts. Android export and APK packaging are intentionally deferred. The current visitor AI and economy are scaffolding. The next development stages will expand individual visitor needs and decisions, then deepen staff and maintenance roles, add land expansion, and implement balanced offline earnings.
