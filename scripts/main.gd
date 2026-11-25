@@ -1172,17 +1172,17 @@ func _send_visitor_to_service(visitor: Dictionary, person: Node3D) -> void:
 			best_route = candidate_route
 	for facility_index in range(facilities.size()):
 		var facility_kind: String = facilities[facility_index]["kind"]
-		var need_level := float(visitor.get("hygiene", 0.0)) if facility_kind == "toilet" else float(visitor.get("rest", 0.0))
-		var price := 8 if facility_kind == "toilet" else 6
-		if need_level < 30.0 or price > int(visitor.get("willingness_to_pay", 35)):
+		var facility_need_level := float(visitor.get("hygiene", 0.0)) if facility_kind == "toilet" else float(visitor.get("rest", 0.0))
+		var facility_price := 8 if facility_kind == "toilet" else 6
+		if facility_need_level < 30.0 or facility_price > int(visitor.get("willingness_to_pay", 35)):
 			continue
 		var facility_position: Vector3 = facilities[facility_index]["position"]
 		var candidate_route := _find_path(person.position, facility_position + Vector3(0, 0, 2.0))
 		if candidate_route.is_empty():
 			continue
-		var score := need_level - person.position.distance_to(facility_position) * 0.5
-		if score > best_score:
-			best_score = score
+		var facility_score := facility_need_level - person.position.distance_to(facility_position) * 0.5
+		if facility_score > best_score:
+			best_score = facility_score
 			best_kind = facility_kind
 			best_index = facility_index
 			best_route = candidate_route
@@ -1302,12 +1302,20 @@ func _update_hud() -> void:
 	if ride_panel != null and ride_panel.visible:
 		_update_ride_panel()
 	if staff_label != null:
-		staff_label.text = "🧹 Уборщики: " + str(cleaners) + "   Мусор: " + str(litter_nodes.size())
+		staff_label.text = "🧹 Уборщики: " + str(cleaners) + "   Мусор: " + str(litter_nodes.size()) + "\n🚻 Туалеты: " + str(_count_facilities("toilet")) + "   🪑 Зоны отдыха: " + str(_count_facilities("rest"))
 	if hire_cleaner_button != null:
 		hire_cleaner_button.disabled = coins < 300
 	if economy_label != null:
 		var net_profit := total_income - total_expenses
 		economy_label.text = "Выручка: 🪙 " + _format_number(total_income) + "   Расходы: 🪙 " + _format_number(total_expenses) + "   Прибыль: 🪙 " + _format_number(net_profit)
+
+
+func _count_facilities(kind: String) -> int:
+	var count := 0
+	for facility in facilities:
+		if facility.get("kind", "") == kind:
+			count += 1
+	return count
 
 
 func _total_queued_visitors() -> int:
