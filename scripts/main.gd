@@ -1177,15 +1177,15 @@ func _send_visitor_to_service(visitor: Dictionary, person: Node3D) -> void:
 		if facility_need_level < 30.0 or facility_price > int(visitor.get("willingness_to_pay", 35)):
 			continue
 		var facility_position: Vector3 = facilities[facility_index]["position"]
-		var candidate_route := _find_path(person.position, facility_position + Vector3(0, 0, 2.0))
-		if candidate_route.is_empty():
+		var facility_candidate_route := _find_path(person.position, facility_position + Vector3(0, 0, 2.0))
+		if facility_candidate_route.is_empty():
 			continue
 		var facility_score := facility_need_level - person.position.distance_to(facility_position) * 0.5
 		if facility_score > best_score:
 			best_score = facility_score
 			best_kind = facility_kind
 			best_index = facility_index
-			best_route = candidate_route
+			best_route = facility_candidate_route
 	if best_index < 0:
 		_send_visitor_to_exit(visitor, person)
 		return
