@@ -30,6 +30,8 @@ PARKORA uses **ThemeParkManager by Supercent** as its primary gameplay reference
 - Categorized recurring expenses for staff wages, facility upkeep, and ride maintenance
 - Rolling one-minute income, expense, and net-profit report plus lifetime financial totals
 - Persistent local save of the categorized financial ledger
+- Offline park settlement on return, capped at 8 hours and calculated from demand, attraction condition, cleanliness, services, wages, and upkeep
+- Closed attractions earn no offline revenue; recurring costs still apply and cash is protected from negative balances
 - Six sequential park objectives with one-time coin rewards and saved progression
 - Three purchasable land expansions (north, west, east) with visible boundaries, construction limits, and saved ownership
 - Food and drink kiosks selected by individual visitors according to hunger/thirst, affordability, reachable path, and walking distance
