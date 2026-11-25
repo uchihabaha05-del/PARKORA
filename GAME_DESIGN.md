@@ -48,8 +48,10 @@ The player starts with a small, underdeveloped amusement park and personally tur
 - Staff have wages and work capacity; hiring should solve operational bottlenecks rather than be a cosmetic button.
 
 ### 5. Economy and idle progression
-- Track income and expenses by source: admission, rides, shops, wages, upkeep, and expansion.
-- Show current cash, income rate, expenses, and net profit clearly.
+- Track lifetime income by source: admission, rides, and visitor services; track recurring expenses by staff wages, service-facility upkeep, and attraction maintenance.
+- Show a rolling one-minute operating report with income, expenses, and net profit, alongside lifetime totals.
+- Persist the categorized ledger and current reporting window in the local save so the financial picture survives a restart.
+- Keep one-off construction, hiring, upgrades, and manual repairs distinct from recurring operating expenses.
 - Offline earnings must be calculated from elapsed time with a cap and sensible operating costs; do not grant unlimited profit if the park would have run out of cash or broken down.
 - Balance the early game so the player can understand why the park is earning or losing money.
 
@@ -70,4 +72,4 @@ The player starts with a small, underdeveloped amusement park and personally tur
 
 ## Current implementation status
 
-PARKORA is still a prototype. It currently has a procedural park, path-based routefinding, two rides, visitor queues, configurable ride prices and upgrades, attraction condition and repair, food/drink kiosks, individual hunger/thirst needs, buildable toilets and rest areas, individual hygiene/rest needs, visitor-paid facility use, cleaner and mechanic hiring, litter and cleanliness simulation, recurring staff wages and facility upkeep, automatic mechanic maintenance, and local save/restore of built objects and park finances. These systems are scaffolding, not the final management simulation. Runtime validation in Godot is still required.
+PARKORA is still a prototype. It currently has a procedural park, path-based routefinding, two rides, visitor queues, configurable ride prices and upgrades, attraction condition and repair, food/drink kiosks, individual hunger/thirst needs, buildable toilets and rest areas, individual hygiene/rest needs, visitor-paid facility use, cleaner and mechanic hiring, litter and cleanliness simulation, recurring staff wages and facility upkeep, automatic mechanic maintenance, categorized lifetime income and operating expenses, a rolling one-minute profit report, and local save/restore of built objects and park finances. These systems are scaffolding, not the final management simulation. Runtime validation in Godot is still required.
