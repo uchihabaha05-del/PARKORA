@@ -303,6 +303,10 @@ func _place_selected(position: Vector3) -> void:
 	if coins < cost:
 		_set_hint("Не хватает монет для строительства")
 		return
+	if selected_build == "carousel" or selected_build == "ferris":
+		if _find_path(Vector3(0, 0, 13), position + Vector3(0, 0, 4.0)).is_empty():
+			_set_hint("Подведи дорожку к входу аттракциона — без доступа гости не смогут им пользоваться")
+			return
 	match selected_build:
 		"carousel":
 			_create_carousel(position)
@@ -423,7 +427,7 @@ func _find_nearest_path_cell(position: Vector3, max_distance: float = 6.0) -> Ve
 
 func _find_path(start_position: Vector3, goal_position: Vector3) -> Array:
 	var start_cell := _find_nearest_path_cell(start_position)
-	var goal_cell := _find_nearest_path_cell(goal_position)
+	var goal_cell := _find_nearest_path_cell(goal_position, 3.0)
 	var result: Array = []
 	if start_cell.x == 99999 or goal_cell.x == 99999:
 		return result
