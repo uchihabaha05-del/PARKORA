@@ -750,31 +750,32 @@ func _send_visitor_to_service(visitor: Dictionary, person: Node3D) -> void:
 	if bool(visitor.get("service_done", false)) or shops.is_empty():
 		_send_visitor_to_exit(visitor, person)
 		return
-	var wanted_kind := "food" if float(visitor.get("hunger", 0.0)) >= float(visitor.get("thirst", 0.0)) else "drink"
 	var best_shop := -1
 	var best_route: Array = []
-	var best_distance := INF
+	var best_score := -INF
 	for shop_index in range(shops.size()):
-		if shops[shop_index]["kind"] != wanted_kind:
-			continue
+		var shop_kind: String = shops[shop_index]["kind"]
+		var need_level := float(visitor.get("hunger", 0.0)) if shop_kind == "food" else float(visitor.get("thirst", 0.0))
 		var shop_position: Vector3 = shops[shop_index]["position"]
 		var service_position := shop_position + Vector3(0, 0, 2.0)
 		var candidate_route := _find_path(person.position, service_position)
 		if candidate_route.is_empty():
 			continue
 		var distance := person.position.distance_to(shop_position)
-		if distance < best_distance:
-			best_distance = distance
+		var score := need_level - distance * 0.5
+		if score > best_score:
+			best_score = score
 			best_shop = shop_index
 			best_route = candidate_route
 	if best_shop < 0:
 		_send_visitor_to_exit(visitor, person)
 		return
+	var selected_kind: String = shops[best_shop]["kind"]
 	visitor["shop_index"] = best_shop
 	visitor["route"] = best_route
 	visitor["route_index"] = 0
 	visitor["state"] = "walking_to_shop"
-	_set_hint("Посетитель направился в " + ("киоск еды" if wanted_kind == "food" else "киоск напитков"))
+	_set_hint("Посетитель направился в " + ("киоск еды" if selected_kind == "food" else "киоск напитков"))
 
 
 func _send_visitor_to_exit(visitor: Dictionary, person: Node3D) -> void:
