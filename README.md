@@ -31,6 +31,7 @@ PARKORA uses **ThemeParkManager by Supercent** as its primary gameplay reference
 - Rolling one-minute income, expense, and net-profit report plus lifetime financial totals
 - Persistent local save of the categorized financial ledger
 - Six sequential park objectives with one-time coin rewards and saved progression
+- Three purchasable land expansions (north, west, east) with visible boundaries, construction limits, and saved ownership
 - Food and drink kiosks selected by individual visitors according to hunger/thirst, affordability, reachable path, and walking distance
 - Buildable toilet and rest facilities with distinct visitor needs, service prices, routefinding, usage time, income, and recurring upkeep
 - Visitors track hygiene and rest needs and choose an affordable reachable facility when the need is high
