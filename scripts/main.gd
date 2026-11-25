@@ -667,8 +667,15 @@ func _update_ride_panel() -> void:
 	var condition := float(ride.get("condition", 100.0))
 	var revenue := int(ride.get("ride_revenue", 0))
 	var served := int(ride.get("served", 0))
+	var price_score_count := int(ride.get("price_satisfaction_count", 0))
+	var average_price_satisfaction := float(ride.get("price_satisfaction_sum", 0.0)) / float(price_score_count) if price_score_count > 0 else 0.0
+	var hourly_capacity := _ride_hourly_capacity(ride)
+	var queue: Array = ride.get("queue", [])
+	var estimated_wait := float(queue.size()) * duration * (1.25 if condition < 50.0 else 1.0)
+	var queue_load := int(round(float(queue.size()) / maxf(1.0, float(capacity)) * 100.0))
+	var price_feedback := str(roundi(average_price_satisfaction)) + "%" if price_score_count > 0 else "нет данных"
 	var operating_status := "ОТКРЫТ" if condition >= 25.0 else "ЗАКРЫТ — требуется ремонт"
-	ride_info_label.text = ride_name + "  •  Ур. " + str(level) + "  •  " + operating_status + "\nОчередь: " + str(capacity) + " мест   •   Катание: " + str(snappedf(duration, 0.1)) + " сек.\nКлиентов: " + str(served) + "   •   Выручка: 🪙 " + _format_number(revenue)
+	ride_info_label.text = ride_name + "  •  Ур. " + str(level) + "  •  " + operating_status + "\nОчередь: " + str(queue.size()) + "/" + str(capacity) + " мест (" + str(queue_load) + "%)   •   ожидание ~" + str(roundi(estimated_wait)) + " сек.\nПроходимость: ~" + _format_number(hourly_capacity) + "/ч   •   оценка цены: " + price_feedback + "\nКлиентов: " + str(served) + "   •   Выручка: 🪙 " + _format_number(revenue)
 	ride_price_label.text = "🪙 " + str(price)
 	ride_condition_label.text = "Состояние: " + str(roundi(condition)) + "%"
 	ride_condition_label.add_theme_color_override("font_color", Color("#83d69a") if condition >= 60.0 else Color("#ffb56b") if condition >= 25.0 else Color("#ff7777"))
@@ -751,6 +758,8 @@ func _sync_ride_save(ride_index: int) -> void:
 			saved["condition"] = float(ride.get("condition", 100.0))
 			saved["ride_revenue"] = int(ride.get("ride_revenue", 0))
 			saved["served"] = int(ride.get("served", 0))
+			saved["price_satisfaction_sum"] = float(ride.get("price_satisfaction_sum", 0.0))
+			saved["price_satisfaction_count"] = int(ride.get("price_satisfaction_count", 0))
 			built_objects[i] = saved
 			return
 
@@ -887,6 +896,8 @@ func _place_selected(position: Vector3) -> void:
 		saved_ride["condition"] = float(new_ride.get("condition", 100.0))
 		saved_ride["ride_revenue"] = int(new_ride.get("ride_revenue", 0))
 		saved_ride["served"] = int(new_ride.get("served", 0))
+		saved_ride["price_satisfaction_sum"] = float(new_ride.get("price_satisfaction_sum", 0.0))
+		saved_ride["price_satisfaction_count"] = int(new_ride.get("price_satisfaction_count", 0))
 	built_objects.append(saved_ride)
 	_save_game()
 	_update_hud()
@@ -945,7 +956,7 @@ func _create_carousel(position: Vector3) -> void:
 		var seat_color: StandardMaterial3D = red_material if i % 2 == 0 else blue_material
 		_add_box_local(spinning, seat_position, Vector3(0.8, 0.8, 0.8), seat_color)
 		_add_cylinder_local(spinning, Vector3(cos(angle) * 2.25, 0.45, sin(angle) * 2.25), 0.07, 2.0, cream_material)
-	rides.append({"kind": "carousel", "position": position, "node": spinning, "timer": 0.0, "queue": [], "busy": false, "queue_capacity": 6, "level": 1, "ticket_price": RIDE_TICKET_PRICE, "ride_duration": 4.0, "condition": 100.0, "ride_revenue": 0, "served": 0})
+	rides.append({"kind": "carousel", "position": position, "node": spinning, "timer": 0.0, "queue": [], "busy": false, "queue_capacity": 6, "level": 1, "ticket_price": RIDE_TICKET_PRICE, "ride_duration": 4.0, "condition": 100.0, "ride_revenue": 0, "served": 0, "price_satisfaction_sum": 0.0, "price_satisfaction_count": 0})
 
 
 func _create_ferris_wheel(position: Vector3) -> void:
@@ -965,7 +976,7 @@ func _create_ferris_wheel(position: Vector3) -> void:
 		spoke.rotation.z = angle
 		var gondola := _add_box_local(wheel, Vector3(cos(angle) * 3.0, sin(angle) * 3.0, 0), Vector3(0.65, 0.55, 0.55), red_material if i % 2 == 0 else blue_material)
 		gondola.rotation.z = angle
-	rides.append({"kind": "ferris", "position": position, "node": wheel, "timer": 0.0, "queue": [], "busy": false, "queue_capacity": 6, "level": 1, "ticket_price": RIDE_TICKET_PRICE, "ride_duration": 7.0, "condition": 100.0, "ride_revenue": 0, "served": 0})
+	rides.append({"kind": "ferris", "position": position, "node": wheel, "timer": 0.0, "queue": [], "busy": false, "queue_capacity": 6, "level": 1, "ticket_price": RIDE_TICKET_PRICE, "ride_duration": 7.0, "condition": 100.0, "ride_revenue": 0, "served": 0, "price_satisfaction_sum": 0.0, "price_satisfaction_count": 0})
 
 
 func _animate_rides(delta: float) -> void:
@@ -1046,6 +1057,8 @@ func _load_game() -> void:
 			restored_ride["condition"] = float(saved_object.get("condition", 100.0))
 			restored_ride["ride_revenue"] = int(saved_object.get("ride_revenue", 0))
 			restored_ride["served"] = int(saved_object.get("served", 0))
+			restored_ride["price_satisfaction_sum"] = float(saved_object.get("price_satisfaction_sum", 0.0))
+			restored_ride["price_satisfaction_count"] = int(saved_object.get("price_satisfaction_count", 0))
 			rides[rides.size() - 1] = restored_ride
 		built_objects.append(saved_object.duplicate(true))
 	var now_unix := int(Time.get_unix_time_from_system())
@@ -1262,7 +1275,9 @@ func _spawn_visitor() -> void:
 		rides[target_index]["queue"] = queue
 		person.queue_free()
 		return
-	visitors.append({"node": person, "person_id": person.get_instance_id(), "target": target, "route": route, "route_index": 0, "route_queue_index": queue.size() - 1, "patience": 45.0, "state": "walking", "wait": 0.0, "ride_index": target_index, "hunger": randf_range(15.0, 35.0), "thirst": randf_range(20.0, 40.0), "hygiene": randf_range(25.0, 45.0), "rest": randf_range(25.0, 45.0), "shop_index": -1, "facility_index": -1, "service_done": false, "willingness_to_pay": willingness_to_pay, "satisfaction": randf_range(65.0, 85.0), "feedback_recorded": false})
+	var chosen_ride_price := int(rides[target_index].get("ticket_price", RIDE_TICKET_PRICE))
+	var ride_price_satisfaction := _ride_price_value_score(chosen_ride_price, willingness_to_pay)
+	visitors.append({"node": person, "person_id": person.get_instance_id(), "target": target, "route": route, "route_index": 0, "route_queue_index": queue.size() - 1, "patience": 45.0, "state": "walking", "wait": 0.0, "ride_index": target_index, "hunger": randf_range(15.0, 35.0), "thirst": randf_range(20.0, 40.0), "hygiene": randf_range(25.0, 45.0), "rest": randf_range(25.0, 45.0), "shop_index": -1, "facility_index": -1, "service_done": false, "willingness_to_pay": willingness_to_pay, "ride_price_satisfaction": ride_price_satisfaction, "satisfaction": randf_range(65.0, 85.0), "feedback_recorded": false})
 	coins += ENTRY_TICKET_PRICE
 	total_visitors += 1
 	total_income += ENTRY_TICKET_PRICE
@@ -1325,24 +1340,40 @@ func _find_path(start_position: Vector3, goal_position: Vector3) -> Array:
 	return result
 
 
+func _ride_price_value_score(ticket_price: int, willingness_to_pay: int) -> float:
+	var price_ratio := float(ticket_price) / maxf(1.0, float(willingness_to_pay))
+	return clampf(105.0 - price_ratio * 55.0, 40.0, 100.0)
+
+
+func _ride_hourly_capacity(ride: Dictionary) -> int:
+	var duration := maxf(1.0, float(ride.get("ride_duration", 4.0)))
+	if float(ride.get("condition", 100.0)) < 50.0:
+		duration *= 1.25
+	return maxi(1, floori(3600.0 / duration))
+
+
 func _find_best_ride(willingness_to_pay: int) -> int:
 	var best_index := -1
 	var best_load := INF
 	for i in range(rides.size()):
-		var queue: Array = rides[i]["queue"]
-		var capacity: int = int(rides[i].get("queue_capacity", 6))
-		if queue.size() >= capacity:
-			continue
-		if int(rides[i].get("ticket_price", RIDE_TICKET_PRICE)) > willingness_to_pay:
-			continue
-		if float(rides[i].get("condition", 100.0)) < 25.0:
+		var ride: Dictionary = rides[i]
+		var queue: Array = ride["queue"]
+		var queue_capacity: int = int(ride.get("queue_capacity", 6))
+		var ticket_price := int(ride.get("ticket_price", RIDE_TICKET_PRICE))
+		var condition := float(ride.get("condition", 100.0))
+		if queue.size() >= queue_capacity or ticket_price > willingness_to_pay or condition < 25.0:
 			continue
 		if _find_path(Vector3(0, 0, 13), _queue_position(i, 0)).is_empty():
 			continue
-		var price := float(rides[i].get("ticket_price", RIDE_TICKET_PRICE))
-		var load := float(queue.size()) + price * 0.015
-		if rides[i]["busy"]:
-			load += 0.5
+		var effective_duration := float(ride.get("ride_duration", 4.0))
+		if condition < 50.0:
+			effective_duration *= 1.25
+		var estimated_wait := float(queue.size()) * effective_duration
+		if bool(ride.get("busy", false)):
+			estimated_wait += effective_duration
+		var price_score := _ride_price_value_score(ticket_price, willingness_to_pay)
+		var condition_penalty := (100.0 - condition) * 0.025
+		var load := estimated_wait + (100.0 - price_score) * 0.12 + condition_penalty
 		if load < best_load:
 			best_load = load
 			best_index = i
@@ -1445,7 +1476,12 @@ func _update_visitors(delta: float) -> void:
 		elif visitor["state"] == "riding":
 			visitor["wait"] -= delta
 			if visitor["wait"] <= 0.0:
-				visitor["satisfaction"] = minf(100.0, float(visitor.get("satisfaction", 80.0)) + 12.0)
+				var price_experience := float(visitor.get("ride_price_satisfaction", 70.0))
+				visitor["satisfaction"] = clampf(float(visitor.get("satisfaction", 80.0)) + 12.0 + (price_experience - 70.0) * 0.12, 0.0, 100.0)
+				var completed_ride: Dictionary = rides[ride_index]
+				completed_ride["price_satisfaction_sum"] = float(completed_ride.get("price_satisfaction_sum", 0.0)) + price_experience
+				completed_ride["price_satisfaction_count"] = int(completed_ride.get("price_satisfaction_count", 0)) + 1
+				rides[ride_index] = completed_ride
 				_remove_visitor_from_queue(ride_index, person_id)
 				rides[ride_index]["busy"] = false
 				var ride_price := int(rides[ride_index].get("ticket_price", RIDE_TICKET_PRICE))
