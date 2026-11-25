@@ -34,6 +34,8 @@ var ride_maintenance_expenses := 0
 var period_income := 0
 var period_expenses := 0
 var reporting_timer := 60.0
+var objective_index := 0
+var objective_label: Label
 var maintenance_timer := 10.0
 var save_timer := 15.0
 var built_objects: Array[Dictionary] = []
@@ -86,6 +88,7 @@ func _process(delta: float) -> void:
 	_animate_rides(delta)
 	_update_economy(delta)
 	_update_reporting_period(delta)
+	_update_objectives()
 	save_timer -= delta
 	if save_timer <= 0.0:
 		save_timer = 15.0
@@ -263,6 +266,7 @@ func _create_ui() -> void:
 	_add_clear_button(row)
 	_create_ride_management_panel(root)
 	_create_staff_panel(root)
+	_create_objective_panel(root)
 
 
 func _create_staff_panel(root: Control) -> void:
@@ -294,6 +298,88 @@ func _create_staff_panel(root: Control) -> void:
 	hire_mechanic_button.custom_minimum_size = Vector2(0, 34)
 	hire_mechanic_button.pressed.connect(_hire_mechanic)
 	column.add_child(hire_mechanic_button)
+
+
+func _create_objective_panel(root: Control) -> void:
+	var panel := PanelContainer.new()
+	panel.position = Vector2(24, 350)
+	panel.custom_minimum_size = Vector2(290, 88)
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.07, 0.13, 0.17, 0.9)
+	style.set_corner_radius_all(10)
+	style.content_margin_left = 10
+	style.content_margin_right = 10
+	style.content_margin_top = 7
+	style.content_margin_bottom = 7
+	panel.add_theme_stylebox_override("panel", style)
+	root.add_child(panel)
+	objective_label = Label.new()
+	objective_label.add_theme_color_override("font_color", Color.WHITE)
+	objective_label.add_theme_font_size_override("font_size", 14)
+	objective_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	panel.add_child(objective_label)
+	_update_objective_text()
+
+
+func _update_objective_text() -> void:
+	var objective_text := ""
+	var reward := 0
+	match objective_index:
+		0:
+			objective_text = "Прими первых 5 посетителей"
+			reward = 500
+		1:
+			objective_text = "Построй второй аттракцион"
+			reward = 800
+		2:
+			objective_text = "Построй 2 объекта обслуживания"
+			reward = 600
+		3:
+			objective_text = "Заработай 1 500 монет общей выручки"
+			reward = 1000
+		4:
+			objective_text = "Найми уборщика или механика"
+			reward = 500
+		5:
+			objective_text = "Доведи рейтинг и чистоту до 70%"
+			reward = 1500
+		_:
+			objective_text = "Все основные цели выполнены! Продолжай развивать парк"
+	if objective_index >= 6:
+		objective_label.text = "🏆 Цели\n" + objective_text
+	else:
+		objective_label.text = "🎯 ЦЕЛЬ " + str(objective_index + 1) + "/6\n" + objective_text + "\nНаграда: 🪙 " + _format_number(reward)
+
+
+func _update_objectives() -> void:
+	var completed := false
+	var reward := 0
+	match objective_index:
+		0:
+			completed = total_visitors >= 5
+			reward = 500
+		1:
+			completed = rides.size() >= 2
+			reward = 800
+		2:
+			completed = shops.size() + facilities.size() >= 2
+			reward = 600
+		3:
+			completed = total_income >= 1500
+			reward = 1000
+		4:
+			completed = cleaners + mechanics >= 1
+			reward = 500
+		5:
+			completed = park_rating >= 70.0 and cleanliness >= 70.0
+			reward = 1500
+	if completed and objective_index < 6:
+		coins += reward
+		objective_index += 1
+		_update_objective_text()
+		_update_hud()
+		_save_game()
+		_set_hint("Цель выполнена! Награда: +🪙 " + _format_number(reward))
 
 
 func _hire_cleaner() -> void:
@@ -786,6 +872,7 @@ func _load_game() -> void:
 	period_income = int(config.get_value("economy", "period_income", 0))
 	period_expenses = int(config.get_value("economy", "period_expenses", 0))
 	reporting_timer = float(config.get_value("economy", "reporting_timer", 60.0))
+	objective_index = clampi(int(config.get_value("economy", "objective_index", 0)), 0, 6)
 	park_rating = float(config.get_value("park", "park_rating", 50.0))
 	cleaners = int(config.get_value("park", "cleaners", 0))
 	mechanics = int(config.get_value("park", "mechanics", 0))
@@ -842,6 +929,7 @@ func _save_game() -> void:
 	config.set_value("economy", "period_income", period_income)
 	config.set_value("economy", "period_expenses", period_expenses)
 	config.set_value("economy", "reporting_timer", reporting_timer)
+	config.set_value("economy", "objective_index", objective_index)
 	config.set_value("park", "park_rating", park_rating)
 	config.set_value("park", "cleaners", cleaners)
 	config.set_value("park", "mechanics", mechanics)
