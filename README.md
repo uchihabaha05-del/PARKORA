@@ -60,4 +60,4 @@ PARKORA uses **ThemeParkManager by Supercent** as its primary gameplay reference
 
 The project is an early playable foundation. Park progress is saved locally in `user://parkora_save.cfg` and restored when the game starts. Android export and APK packaging are intentionally deferred. The current visitor AI and economy are scaffolding. The next development stages will focus on testing and balancing the management simulation, expanding visitor behavior, and improving the mobile interface.
 
-- Individual food, drink, toilet, and rest facilities track their own customer counts and revenue; the economy HUD identifies the current revenue leader.
+- Individual food, drink, toilet, and rest facilities track customer counts, revenue, recurring operating costs, and net profit; the HUD highlights the most profitable and least profitable service buildings.
