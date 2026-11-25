@@ -29,6 +29,11 @@ var save_timer := 15.0
 var built_objects: Array[Dictionary] = []
 var park_rating := 50.0
 var economy_label: Label
+var selected_ride_index := -1
+var ride_panel: PanelContainer
+var ride_info_label: Label
+var ride_upgrade_button: Button
+var ride_price_label: Label
 
 var grass_material: StandardMaterial3D
 var path_material: StandardMaterial3D
@@ -233,6 +238,7 @@ func _create_ui() -> void:
 	_add_build_button(row, "Еда 🍔\n🪙 650", "food")
 	_add_build_button(row, "Напитки 🥤\n🪙 500", "drink")
 	_add_clear_button(row)
+	_create_ride_management_panel(root)
 
 
 func _create_ride_management_panel(root: Control) -> void:
@@ -463,8 +469,6 @@ func _zoom_camera(factor: float) -> void:
 
 
 func _try_place(screen_position: Vector2) -> void:
-	if selected_build == "":
-		return
 	var origin := camera.project_ray_origin(screen_position)
 	var direction := camera.project_ray_normal(screen_position)
 	if absf(direction.y) < 0.001:
@@ -474,6 +478,9 @@ func _try_place(screen_position: Vector2) -> void:
 		return
 	var hit := origin + direction * distance
 	if absf(hit.x) > 45.0 or absf(hit.z) > 45.0:
+		return
+	if selected_build == "":
+		_select_ride_at_position(hit)
 		return
 	_place_selected(Vector3(snappedf(hit.x, 2.0), 0.0, snappedf(hit.z, 2.0)))
 
@@ -547,7 +554,7 @@ func _create_carousel(position: Vector3) -> void:
 		var seat_color: StandardMaterial3D = red_material if i % 2 == 0 else blue_material
 		_add_box_local(spinning, seat_position, Vector3(0.8, 0.8, 0.8), seat_color)
 		_add_cylinder_local(spinning, Vector3(cos(angle) * 2.25, 0.45, sin(angle) * 2.25), 0.07, 2.0, cream_material)
-	rides.append({"kind": "carousel", "position": position, "node": spinning, "timer": 0.0, "queue": [], "busy": false, "queue_capacity": 6})
+	rides.append({"kind": "carousel", "position": position, "node": spinning, "timer": 0.0, "queue": [], "busy": false, "queue_capacity": 6, "level": 1, "ticket_price": RIDE_TICKET_PRICE, "ride_duration": 4.0})
 
 
 func _create_ferris_wheel(position: Vector3) -> void:
@@ -567,7 +574,7 @@ func _create_ferris_wheel(position: Vector3) -> void:
 		spoke.rotation.z = angle
 		var gondola := _add_box_local(wheel, Vector3(cos(angle) * 3.0, sin(angle) * 3.0, 0), Vector3(0.65, 0.55, 0.55), red_material if i % 2 == 0 else blue_material)
 		gondola.rotation.z = angle
-	rides.append({"kind": "ferris", "position": position, "node": wheel, "timer": 0.0, "queue": [], "busy": false, "queue_capacity": 6})
+	rides.append({"kind": "ferris", "position": position, "node": wheel, "timer": 0.0, "queue": [], "busy": false, "queue_capacity": 6, "level": 1, "ticket_price": RIDE_TICKET_PRICE, "ride_duration": 7.0})
 
 
 func _animate_rides(delta: float) -> void:
@@ -748,7 +755,7 @@ func _find_best_ride() -> int:
 	var best_load := INF
 	for i in range(rides.size()):
 		var queue: Array = rides[i]["queue"]
-		var capacity: int = rides[i]["queue_capacity"]
+		var capacity: int = int(rides[i].get("queue_capacity", 6))
 		if queue.size() >= capacity:
 			continue
 		if _find_path(Vector3(0, 0, 13), _queue_position(i, 0)).is_empty():
@@ -843,7 +850,7 @@ func _update_visitors(delta: float) -> void:
 			if queue_index == 0 and not rides[ride_index]["busy"] and direction.length() < 0.6:
 				rides[ride_index]["busy"] = true
 				visitor["state"] = "riding"
-				visitor["wait"] = 4.0
+				visitor["wait"] = float(rides[ride_index].get("ride_duration", 4.0))
 				person.position = rides[ride_index]["position"] + Vector3(0, 0.2, 0)
 				_set_hint("Аттракцион начал обслуживать посетителя")
 		elif visitor["state"] == "riding":
@@ -851,8 +858,9 @@ func _update_visitors(delta: float) -> void:
 			if visitor["wait"] <= 0.0:
 				_remove_visitor_from_queue(ride_index, person_id)
 				rides[ride_index]["busy"] = false
-				coins += RIDE_TICKET_PRICE
-				total_income += RIDE_TICKET_PRICE
+				var ride_price := int(rides[ride_index].get("ticket_price", RIDE_TICKET_PRICE))
+				coins += ride_price
+				total_income += ride_price
 				park_rating = minf(100.0, park_rating + 1.5)
 				_update_hud()
 				_set_hint("Катание завершено! +🪙 " + str(RIDE_TICKET_PRICE))
