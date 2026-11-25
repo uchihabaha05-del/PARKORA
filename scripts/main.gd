@@ -1262,7 +1262,7 @@ func _spawn_visitor() -> void:
 		rides[target_index]["queue"] = queue
 		person.queue_free()
 		return
-	visitors.append({"node": person, "person_id": person.get_instance_id(), "target": target, "route": route, "route_index": 0, "route_queue_index": queue.size() - 1, "patience": 45.0, "state": "walking", "wait": 0.0, "ride_index": target_index, "hunger": randf_range(15.0, 35.0), "thirst": randf_range(20.0, 40.0), "hygiene": randf_range(25.0, 45.0), "rest": randf_range(25.0, 45.0), "shop_index": -1, "facility_index": -1, "service_done": false, "willingness_to_pay": willingness_to_pay, "satisfaction": randf_range(78.0, 92.0), "feedback_recorded": false})
+	visitors.append({"node": person, "person_id": person.get_instance_id(), "target": target, "route": route, "route_index": 0, "route_queue_index": queue.size() - 1, "patience": 45.0, "state": "walking", "wait": 0.0, "ride_index": target_index, "hunger": randf_range(15.0, 35.0), "thirst": randf_range(20.0, 40.0), "hygiene": randf_range(25.0, 45.0), "rest": randf_range(25.0, 45.0), "shop_index": -1, "facility_index": -1, "service_done": false, "willingness_to_pay": willingness_to_pay, "satisfaction": randf_range(65.0, 85.0), "feedback_recorded": false})
 	coins += ENTRY_TICKET_PRICE
 	total_visitors += 1
 	total_income += ENTRY_TICKET_PRICE
@@ -1416,7 +1416,7 @@ func _update_visitors(delta: float) -> void:
 			if queue_index < 0:
 				continue
 			visitor["patience"] -= delta
-			visitor["satisfaction"] = maxf(0.0, float(visitor.get("satisfaction", 80.0)) - delta * 0.16)
+			visitor["satisfaction"] = maxf(0.0, float(visitor.get("satisfaction", 80.0)) - delta * 0.45)
 			if visitor["patience"] <= 0.0:
 				_remove_visitor_from_queue(ride_index, person_id)
 				visitor["state"] = "leaving"
@@ -1458,7 +1458,7 @@ func _update_visitors(delta: float) -> void:
 				rides[ride_index]["condition"] = maxf(0.0, float(rides[ride_index].get("condition", 100.0)) - 1.5)
 				_sync_ride_save(ride_index)
 				_spawn_litter(rides[ride_index]["position"])
-				park_rating = minf(100.0, park_rating + 1.5)
+				park_rating = minf(100.0, park_rating + 0.2)
 				_update_hud()
 				_set_hint("Катание завершено! +🪙 " + str(ride_price))
 				_send_visitor_to_service(visitor, person)
@@ -1494,7 +1494,7 @@ func _update_visitors(delta: float) -> void:
 						visitor["hunger"] = 0.0
 					else:
 						visitor["thirst"] = 0.0
-					park_rating = minf(100.0, park_rating + 1.0)
+					park_rating = minf(100.0, park_rating + 0.15)
 					_update_hud()
 					_set_hint(("Посетитель купил еду" if shop_kind == "food" else "Посетитель купил напиток") + ": +🪙 " + str(sale_price))
 				visitor["satisfaction"] = minf(100.0, float(visitor.get("satisfaction", 80.0)) + 8.0)
@@ -1532,7 +1532,7 @@ func _update_visitors(delta: float) -> void:
 						visitor["hygiene"] = 0.0
 					else:
 						visitor["rest"] = 0.0
-					park_rating = minf(100.0, park_rating + 1.0)
+					park_rating = minf(100.0, park_rating + 0.15)
 					_update_hud()
 					_set_hint(("Посетитель воспользовался туалетом" if facility_kind == "toilet" else "Посетитель отдохнул") + ": +🪙 " + str(service_price))
 				visitor["satisfaction"] = minf(100.0, float(visitor.get("satisfaction", 80.0)) + 8.0)
