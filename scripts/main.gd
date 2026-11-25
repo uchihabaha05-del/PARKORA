@@ -471,7 +471,6 @@ func _notification(what: int) -> void:
 
 
 func _update_economy(delta: float) -> void:
-	_update_shop_sales(delta)
 	maintenance_timer -= delta
 	if maintenance_timer > 0.0:
 		return
@@ -488,27 +487,6 @@ func _update_economy(delta: float) -> void:
 		park_rating = maxf(0.0, park_rating - 1.0)
 		_set_hint("Не хватает монет на обслуживание! Рейтинг парка снижается")
 	_update_hud()
-
-
-func _update_shop_sales(delta: float) -> void:
-	if visitors.is_empty():
-		return
-	for shop in shops:
-		shop["timer"] -= delta
-		if shop["timer"] > 0.0:
-			continue
-		shop["timer"] = 9.0 if shop["kind"] == "food" else 7.0
-		var customer_count := mini(visitors.size(), 3)
-		var sale_price := 18 if shop["kind"] == "food" else 12
-		var revenue := customer_count * sale_price
-		if revenue <= 0:
-			continue
-		coins += revenue
-		total_income += revenue
-		shop["served"] += customer_count
-		park_rating = minf(100.0, park_rating + 0.15)
-		_set_hint(("Киоск еды" if shop["kind"] == "food" else "Киоск напитков") + ": обслужено " + str(customer_count) + ", доход +🪙 " + str(revenue))
-		_update_hud()
 
 
 func _visitor_spawn_interval() -> float:
@@ -537,7 +515,7 @@ func _spawn_visitor() -> void:
 		rides[target_index]["queue"] = queue
 		person.queue_free()
 		return
-	visitors.append({"node": person, "person_id": person.get_instance_id(), "target": target, "route": route, "route_index": 0, "route_queue_index": queue.size() - 1, "patience": 45.0, "state": "walking", "wait": 0.0, "ride_index": target_index})
+	visitors.append({"node": person, "person_id": person.get_instance_id(), "target": target, "route": route, "route_index": 0, "route_queue_index": queue.size() - 1, "patience": 45.0, "state": "walking", "wait": 0.0, "ride_index": target_index, "hunger": randf_range(15.0, 35.0), "thirst": randf_range(20.0, 40.0), "shop_index": -1, "service_done": false})
 	coins += ENTRY_TICKET_PRICE
 	total_visitors += 1
 	total_income += ENTRY_TICKET_PRICE
@@ -651,6 +629,8 @@ func _update_visitors(delta: float) -> void:
 			continue
 		if ride_index < 0 or ride_index >= rides.size():
 			continue
+		visitor["hunger"] = minf(100.0, float(visitor.get("hunger", 0.0)) + delta * 0.22)
+		visitor["thirst"] = minf(100.0, float(visitor.get("thirst", 0.0)) + delta * 0.3)
 		var person_id: int = visitor["person_id"]
 		var queue_index := _find_visitor_queue_index(ride_index, person_id)
 		if visitor["state"] == "walking":
@@ -707,12 +687,44 @@ func _update_visitors(delta: float) -> void:
 				coins += RIDE_TICKET_PRICE
 				total_income += RIDE_TICKET_PRICE
 				park_rating = minf(100.0, park_rating + 1.5)
-				visitor["state"] = "leaving"
-				visitor["target"] = Vector3(0, 0, 16.0)
-				visitor["route"] = _find_path(person.position, visitor["target"])
-				visitor["route_index"] = 0
 				_update_hud()
 				_set_hint("Катание завершено! +🪙 " + str(RIDE_TICKET_PRICE))
+				_send_visitor_to_service(visitor, person)
+		elif visitor["state"] == "walking_to_shop":
+			var shop_route: Array = visitor["route"]
+			if shop_route.is_empty():
+				_send_visitor_to_exit(visitor, person)
+				continue
+			var shop_waypoint: Vector3 = shop_route[visitor["route_index"]]
+			var shop_direction: Vector3 = shop_waypoint - person.position
+			shop_direction.y = 0.0
+			if shop_direction.length() < 0.3:
+				visitor["route_index"] += 1
+				if visitor["route_index"] >= shop_route.size():
+					visitor["state"] = "shopping"
+					visitor["wait"] = 3.0
+			else:
+				person.position += shop_direction.normalized() * delta * 2.2
+				person.look_at(Vector3(shop_waypoint.x, person.position.y, shop_waypoint.z), Vector3.UP)
+		elif visitor["state"] == "shopping":
+			visitor["wait"] -= delta
+			if visitor["wait"] <= 0.0:
+				var shop_index: int = visitor["shop_index"]
+				if shop_index >= 0 and shop_index < shops.size():
+					var shop_kind: String = shops[shop_index]["kind"]
+					var sale_price := 18 if shop_kind == "food" else 12
+					coins += sale_price
+					total_income += sale_price
+					shops[shop_index]["served"] += 1
+					if shop_kind == "food":
+						visitor["hunger"] = 0.0
+					else:
+						visitor["thirst"] = 0.0
+					park_rating = minf(100.0, park_rating + 1.0)
+					_update_hud()
+					_set_hint(("Посетитель купил еду" if shop_kind == "food" else "Посетитель купил напиток") + ": +🪙 " + str(sale_price))
+				visitor["service_done"] = true
+				_send_visitor_to_exit(visitor, person)
 		elif visitor["state"] == "leaving":
 			var exit_route: Array = visitor["route"]
 			if exit_route.is_empty():
@@ -732,6 +744,44 @@ func _update_visitors(delta: float) -> void:
 			else:
 				person.position += exit_direction.normalized() * delta * 2.4
 				person.look_at(Vector3(exit_waypoint.x, person.position.y, exit_waypoint.z), Vector3.UP)
+
+
+func _send_visitor_to_service(visitor: Dictionary, person: Node3D) -> void:
+	if bool(visitor.get("service_done", false)) or shops.is_empty():
+		_send_visitor_to_exit(visitor, person)
+		return
+	var wanted_kind := "food" if float(visitor.get("hunger", 0.0)) >= float(visitor.get("thirst", 0.0)) else "drink"
+	var best_shop := -1
+	var best_route: Array = []
+	var best_distance := INF
+	for shop_index in range(shops.size()):
+		if shops[shop_index]["kind"] != wanted_kind:
+			continue
+		var shop_position: Vector3 = shops[shop_index]["position"]
+		var service_position := shop_position + Vector3(0, 0, 2.0)
+		var candidate_route := _find_path(person.position, service_position)
+		if candidate_route.is_empty():
+			continue
+		var distance := person.position.distance_to(shop_position)
+		if distance < best_distance:
+			best_distance = distance
+			best_shop = shop_index
+			best_route = candidate_route
+	if best_shop < 0:
+		_send_visitor_to_exit(visitor, person)
+		return
+	visitor["shop_index"] = best_shop
+	visitor["route"] = best_route
+	visitor["route_index"] = 0
+	visitor["state"] = "walking_to_shop"
+	_set_hint("Посетитель направился в " + ("киоск еды" if wanted_kind == "food" else "киоск напитков"))
+
+
+func _send_visitor_to_exit(visitor: Dictionary, person: Node3D) -> void:
+	visitor["state"] = "leaving"
+	visitor["target"] = Vector3(0, 0, 16.0)
+	visitor["route"] = _find_path(person.position, visitor["target"])
+	visitor["route_index"] = 0
 
 
 func _add_box(position: Vector3, size: Vector3, material: Material) -> MeshInstance3D:
