@@ -26,6 +26,7 @@ PARKORA takes inspiration from the accessible idle-tycoon loop of mobile amuseme
 - Connected path grid with breadth-first routefinding for visitors
 - Attractions require a nearby connected pedestrian path
 - Coin economy with entrance and ride ticket income
+- Recurring attraction maintenance costs, cash-flow tracking, and lifetime revenue/expense/net-profit HUD
 - Basic attraction unlock progression
 - Russian mobile HUD
 
@@ -40,4 +41,4 @@ PARKORA takes inspiration from the accessible idle-tycoon loop of mobile amuseme
 - Mouse wheel / pinch: zoom
 - Select a construction item, then tap/click the ground to place it
 
-The project is an early playable foundation. Android export and APK packaging are intentionally deferred. The current visitor AI is a lightweight prototype and will be expanded with more advanced pathfinding and crowd flow, staff, services, ride maintenance, and park ratings.
+The project is an early playable foundation. Android export and APK packaging are intentionally deferred. The current visitor AI is a lightweight prototype and will be expanded with more advanced pathfinding and crowd flow, staff, services, and deeper park-management systems.
