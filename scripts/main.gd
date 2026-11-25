@@ -1,7 +1,7 @@
 extends Node3D
 
 const STARTING_COINS := 5000
-const BUILD_COSTS := {"carousel": 1200, "ferris": 2400, "tree": 100, "path": 25}
+const BUILD_COSTS := {"carousel": 1200, "ferris": 2400, "tree": 100, "path": 25, "food": 650, "drink": 500}
 const RIDE_TICKET_PRICE := 35
 const ENTRY_TICKET_PRICE := 10
 const MAX_VISITORS := 14
@@ -18,6 +18,7 @@ var build_buttons: Dictionary = {}
 var touch_dragged := false
 var visitors: Array[Dictionary] = []
 var rides: Array[Dictionary] = []
+var shops: Array[Dictionary] = []
 var path_cells: Dictionary = {}
 var spawn_timer := 1.0
 var total_visitors := 0
@@ -37,6 +38,7 @@ var red_material: StandardMaterial3D
 var yellow_material: StandardMaterial3D
 var blue_material: StandardMaterial3D
 var cream_material: StandardMaterial3D
+var green_material: StandardMaterial3D
 var skin_material: StandardMaterial3D
 var shirt_materials: Array[StandardMaterial3D] = []
 
@@ -77,6 +79,7 @@ func _create_materials() -> void:
 	yellow_material = _material(Color("#ffd45c"))
 	blue_material = _material(Color("#59b9e8"))
 	cream_material = _material(Color("#fff0cf"))
+	green_material = _material(Color("#55b86a"))
 	skin_material = _material(Color("#f2bd91"))
 	shirt_materials = [
 		_material(Color("#f06b68")),
@@ -206,8 +209,8 @@ func _create_ui() -> void:
 	panel.anchor_right = 0.5
 	panel.anchor_top = 1.0
 	panel.anchor_bottom = 1.0
-	panel.offset_left = -365
-	panel.offset_right = 365
+	panel.offset_left = -470
+	panel.offset_right = 470
 	panel.offset_top = -108
 	panel.offset_bottom = -14
 	var style := StyleBoxFlat.new()
@@ -227,14 +230,16 @@ func _create_ui() -> void:
 	_add_build_button(row, "Колесо 🔒\n🪙 2 400", "ferris")
 	_add_build_button(row, "Дерево\n🪙 100", "tree")
 	_add_build_button(row, "Дорожка\n🪙 25", "path")
+	_add_build_button(row, "Еда 🍔\n🪙 650", "food")
+	_add_build_button(row, "Напитки 🥤\n🪙 500", "drink")
 	_add_clear_button(row)
 
 
 func _add_build_button(parent: HBoxContainer, caption: String, build_type: String) -> void:
 	var button := Button.new()
 	button.text = caption
-	button.custom_minimum_size = Vector2(132, 72)
-	button.add_theme_font_size_override("font_size", 17)
+	button.custom_minimum_size = Vector2(112, 72)
+	button.add_theme_font_size_override("font_size", 14)
 	button.pressed.connect(_select_build.bind(build_type))
 	parent.add_child(button)
 	build_buttons[build_type] = button
@@ -243,7 +248,7 @@ func _add_build_button(parent: HBoxContainer, caption: String, build_type: Strin
 func _add_clear_button(parent: HBoxContainer) -> void:
 	var button := Button.new()
 	button.text = "Отмена"
-	button.custom_minimum_size = Vector2(90, 72)
+	button.custom_minimum_size = Vector2(78, 72)
 	button.add_theme_font_size_override("font_size", 16)
 	button.pressed.connect(_select_build.bind(""))
 	parent.add_child(button)
@@ -270,6 +275,10 @@ func _build_name(build_type: String) -> String:
 			return "Дерево"
 		"path":
 			return "Дорожка"
+		"food":
+			return "Киоск еды"
+		"drink":
+			return "Киоск напитков"
 	return "Объект"
 
 
@@ -321,9 +330,9 @@ func _place_selected(position: Vector3) -> void:
 	if coins < cost:
 		_set_hint("Не хватает монет для строительства")
 		return
-	if selected_build == "carousel" or selected_build == "ferris":
-		if _find_path(Vector3(0, 0, 13), position + Vector3(0, 0, 4.0)).is_empty():
-			_set_hint("Подведи дорожку к входу аттракциона — без доступа гости не смогут им пользоваться")
+	if selected_build in ["carousel", "ferris", "food", "drink"]:
+		if _find_path(Vector3(0, 0, 13), position + Vector3(0, 0, 2.0)).is_empty():
+			_set_hint("Подведи дорожку к объекту — посетители должны иметь к нему доступ")
 			return
 	match selected_build:
 		"carousel":
@@ -335,11 +344,25 @@ func _place_selected(position: Vector3) -> void:
 		"path":
 			_add_box(position + Vector3(0, 0.04, 0), Vector3(2.0, 0.12, 2.0), path_material)
 			_register_path(position)
+		"food", "drink":
+			_create_shop(selected_build, position)
 	coins -= cost
 	built_objects.append({"type": selected_build, "position": position})
 	_save_game()
 	_update_hud()
 	_set_hint(_build_name(selected_build) + " построено! 🪙 " + str(coins))
+
+
+func _create_shop(shop_type: String, position: Vector3) -> void:
+	var kiosk := Node3D.new()
+	kiosk.position = position
+	add_child(kiosk)
+	var counter_material: StandardMaterial3D = red_material if shop_type == "food" else blue_material
+	_add_box_local(kiosk, Vector3(0, 0.8, 0), Vector3(2.2, 1.6, 1.8), counter_material)
+	_add_box_local(kiosk, Vector3(0, 1.75, 0), Vector3(2.5, 0.18, 2.1), cream_material)
+	_add_box_local(kiosk, Vector3(0, 2.35, 0), Vector3(2.6, 0.18, 2.2), yellow_material)
+	_add_box_local(kiosk, Vector3(0, 2.05, -0.85), Vector3(2.5, 0.55, 0.12), green_material if shop_type == "food" else blue_material)
+	shops.append({"kind": shop_type, "position": position, "timer": 5.0, "served": 0})
 
 
 func _create_tree(position: Vector3) -> void:
@@ -424,6 +447,8 @@ func _load_game() -> void:
 			"path":
 				_add_box(object_position + Vector3(0, 0.04, 0), Vector3(2.0, 0.12, 2.0), path_material)
 				_register_path(object_position)
+			"food", "drink":
+				_create_shop(object_type, object_position)
 		built_objects.append({"type": object_type, "position": object_position})
 
 
@@ -446,6 +471,7 @@ func _notification(what: int) -> void:
 
 
 func _update_economy(delta: float) -> void:
+	_update_shop_sales(delta)
 	maintenance_timer -= delta
 	if maintenance_timer > 0.0:
 		return
@@ -462,6 +488,27 @@ func _update_economy(delta: float) -> void:
 		park_rating = maxf(0.0, park_rating - 1.0)
 		_set_hint("Не хватает монет на обслуживание! Рейтинг парка снижается")
 	_update_hud()
+
+
+func _update_shop_sales(delta: float) -> void:
+	if visitors.is_empty():
+		return
+	for shop in shops:
+		shop["timer"] -= delta
+		if shop["timer"] > 0.0:
+			continue
+		shop["timer"] = 9.0 if shop["kind"] == "food" else 7.0
+		var customer_count := mini(visitors.size(), 3)
+		var sale_price := 18 if shop["kind"] == "food" else 12
+		var revenue := customer_count * sale_price
+		if revenue <= 0:
+			continue
+		coins += revenue
+		total_income += revenue
+		shop["served"] += customer_count
+		park_rating = minf(100.0, park_rating + 0.15)
+		_set_hint(("Киоск еды" if shop["kind"] == "food" else "Киоск напитков") + ": обслужено " + str(customer_count) + ", доход +🪙 " + str(revenue))
+		_update_hud()
 
 
 func _visitor_spawn_interval() -> float:
