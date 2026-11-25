@@ -1387,7 +1387,7 @@ func _update_visitors(delta: float) -> void:
 		visitor["thirst"] = minf(100.0, float(visitor.get("thirst", 0.0)) + delta * 0.3)
 		visitor["hygiene"] = minf(100.0, float(visitor.get("hygiene", 0.0)) + delta * 0.22)
 		visitor["rest"] = minf(100.0, float(visitor.get("rest", 0.0)) + delta * 0.18)
-		var unmet_need := maxf(float(visitor.get("hunger", 0.0)), float(visitor.get("thirst", 0.0)), float(visitor.get("hygiene", 0.0)), float(visitor.get("rest", 0.0)))
+		var unmet_need := maxf(maxf(float(visitor.get("hunger", 0.0)), float(visitor.get("thirst", 0.0))), maxf(float(visitor.get("hygiene", 0.0)), float(visitor.get("rest", 0.0))))
 		if unmet_need > 75.0:
 			visitor["satisfaction"] = maxf(0.0, float(visitor.get("satisfaction", 80.0)) - delta * 0.035)
 		var person_id: int = visitor["person_id"]
