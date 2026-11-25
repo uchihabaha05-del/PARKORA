@@ -18,7 +18,8 @@ PARKORA takes inspiration from the accessible idle-tycoon loop of mobile amuseme
 - Free orbit camera with touch and mouse controls
 - Buildable carousel, Ferris wheel, trees, and path tiles
 - Animated carousel and Ferris wheel
-- Visitor spawning, simple walking/ride/exit behavior
+- Visitor spawning, physical queue slots, sequential ride service, and exit behavior
+- Attraction queue capacity and load-aware visitor assignment
 - Coin economy with entrance and ride ticket income
 - Basic attraction unlock progression
 - Russian mobile HUD
@@ -34,4 +35,4 @@ PARKORA takes inspiration from the accessible idle-tycoon loop of mobile amuseme
 - Mouse wheel / pinch: zoom
 - Select a construction item, then tap/click the ground to place it
 
-The project is an early playable foundation. Android export and APK packaging are intentionally deferred. The current visitor AI is a lightweight prototype and will be expanded with proper queues, pathfinding, staff, services, and park ratings.
+The project is an early playable foundation. Android export and APK packaging are intentionally deferred. The current visitor AI is a lightweight prototype and will be expanded with grid-based pathfinding, staff, services, ride maintenance, and park ratings.
