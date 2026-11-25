@@ -201,7 +201,7 @@ func _create_ui() -> void:
 	row.add_theme_constant_override("separation", 8)
 	panel.add_child(row)
 	_add_build_button(row, "Карусель\n🪙 1 200", "carousel")
-	_add_build_button(row, "Колесо\n🪙 2 400", "ferris")
+	_add_build_button(row, "Колесо 🔒\n🪙 2 400", "ferris")
 	_add_build_button(row, "Дерево\n🪙 100", "tree")
 	_add_build_button(row, "Дорожка\n🪙 25", "path")
 	_add_clear_button(row)
@@ -432,6 +432,7 @@ func _update_visitors(delta: float) -> void:
 			if exit_direction.length() < 0.8:
 				person.queue_free()
 				visitors.remove_at(i)
+				_update_hud()
 			else:
 				person.position += exit_direction.normalized() * delta * 2.4
 				person.look_at(Vector3(exit_target.x, person.position.y, exit_target.z), Vector3.UP)
@@ -520,6 +521,10 @@ func _add_torus_local(parent: Node3D, position: Vector3, radius: float, tube_rad
 
 
 func _update_hud() -> void:
+	if build_buttons.has("ferris"):
+		var ferris_button: Button = build_buttons["ferris"]
+		ferris_button.disabled = total_visitors < 8
+		ferris_button.text = "Колесо 🔒\n🪙 2 400" if total_visitors < 8 else "Колесо\n🪙 2 400"
 	if coins_label != null:
 		coins_label.text = "PARKORA   🪙 " + _format_number(coins)
 	if visitors_label != null:
