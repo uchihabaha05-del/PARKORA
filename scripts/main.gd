@@ -63,6 +63,11 @@ var last_saved_unix := 0
 var offline_notice := ""
 var offline_earnings := 0
 var offline_costs := 0
+var guest_satisfaction_sum := 0.0
+var guest_feedback_count := 0
+var positive_reviews := 0
+var negative_reviews := 0
+var guest_satisfaction := 75.0
 
 var grass_material: StandardMaterial3D
 var path_material: StandardMaterial3D
@@ -998,6 +1003,13 @@ func _load_game() -> void:
 	for zone_index in range(land_expansions):
 		_create_land_zone(zone_index)
 	park_rating = float(config.get_value("park", "park_rating", 50.0))
+	guest_satisfaction_sum = float(config.get_value("guests", "satisfaction_sum", 0.0))
+	guest_feedback_count = int(config.get_value("guests", "feedback_count", 0))
+	positive_reviews = int(config.get_value("guests", "positive_reviews", 0))
+	negative_reviews = int(config.get_value("guests", "negative_reviews", 0))
+	guest_satisfaction = float(config.get_value("guests", "average_satisfaction", 75.0))
+	if guest_feedback_count > 0:
+		guest_satisfaction = guest_satisfaction_sum / float(guest_feedback_count)
 	cleaners = int(config.get_value("park", "cleaners", 0))
 	mechanics = int(config.get_value("park", "mechanics", 0))
 	cleanliness = float(config.get_value("park", "cleanliness", 100.0))
@@ -1137,6 +1149,11 @@ func _save_game() -> void:
 	config.set_value("economy", "reporting_timer", reporting_timer)
 	config.set_value("economy", "objective_index", objective_index)
 	config.set_value("park", "park_rating", park_rating)
+	config.set_value("guests", "satisfaction_sum", guest_satisfaction_sum)
+	config.set_value("guests", "feedback_count", guest_feedback_count)
+	config.set_value("guests", "positive_reviews", positive_reviews)
+	config.set_value("guests", "negative_reviews", negative_reviews)
+	config.set_value("guests", "average_satisfaction", guest_satisfaction)
 	config.set_value("park", "cleaners", cleaners)
 	config.set_value("park", "mechanics", mechanics)
 	config.set_value("park", "cleanliness", cleanliness)
@@ -1218,7 +1235,8 @@ func _update_ride_maintenance() -> void:
 func _visitor_spawn_interval() -> float:
 	var reputation_factor := park_rating / 100.0
 	var cleanliness_factor := cleanliness / 100.0
-	return lerpf(7.0, 2.5, reputation_factor * cleanliness_factor)
+	var satisfaction_factor := guest_satisfaction / 100.0
+	return lerpf(7.0, 2.5, reputation_factor * cleanliness_factor * satisfaction_factor)
 
 
 func _spawn_visitor() -> void:
@@ -1244,7 +1262,7 @@ func _spawn_visitor() -> void:
 		rides[target_index]["queue"] = queue
 		person.queue_free()
 		return
-	visitors.append({"node": person, "person_id": person.get_instance_id(), "target": target, "route": route, "route_index": 0, "route_queue_index": queue.size() - 1, "patience": 45.0, "state": "walking", "wait": 0.0, "ride_index": target_index, "hunger": randf_range(15.0, 35.0), "thirst": randf_range(20.0, 40.0), "hygiene": randf_range(25.0, 45.0), "rest": randf_range(25.0, 45.0), "shop_index": -1, "facility_index": -1, "service_done": false, "willingness_to_pay": willingness_to_pay})
+	visitors.append({"node": person, "person_id": person.get_instance_id(), "target": target, "route": route, "route_index": 0, "route_queue_index": queue.size() - 1, "patience": 45.0, "state": "walking", "wait": 0.0, "ride_index": target_index, "hunger": randf_range(15.0, 35.0), "thirst": randf_range(20.0, 40.0), "hygiene": randf_range(25.0, 45.0), "rest": randf_range(25.0, 45.0), "shop_index": -1, "facility_index": -1, "service_done": false, "willingness_to_pay": willingness_to_pay, "satisfaction": randf_range(78.0, 92.0), "feedback_recorded": false})
 	coins += ENTRY_TICKET_PRICE
 	total_visitors += 1
 	total_income += ENTRY_TICKET_PRICE
@@ -1369,6 +1387,9 @@ func _update_visitors(delta: float) -> void:
 		visitor["thirst"] = minf(100.0, float(visitor.get("thirst", 0.0)) + delta * 0.3)
 		visitor["hygiene"] = minf(100.0, float(visitor.get("hygiene", 0.0)) + delta * 0.22)
 		visitor["rest"] = minf(100.0, float(visitor.get("rest", 0.0)) + delta * 0.18)
+		var unmet_need := maxf(float(visitor.get("hunger", 0.0)), float(visitor.get("thirst", 0.0)), float(visitor.get("hygiene", 0.0)), float(visitor.get("rest", 0.0)))
+		if unmet_need > 75.0:
+			visitor["satisfaction"] = maxf(0.0, float(visitor.get("satisfaction", 80.0)) - delta * 0.035)
 		var person_id: int = visitor["person_id"]
 		var queue_index := _find_visitor_queue_index(ride_index, person_id)
 		if visitor["state"] == "walking":
@@ -1395,6 +1416,7 @@ func _update_visitors(delta: float) -> void:
 			if queue_index < 0:
 				continue
 			visitor["patience"] -= delta
+			visitor["satisfaction"] = maxf(0.0, float(visitor.get("satisfaction", 80.0)) - delta * 0.16)
 			if visitor["patience"] <= 0.0:
 				_remove_visitor_from_queue(ride_index, person_id)
 				visitor["state"] = "leaving"
@@ -1423,6 +1445,7 @@ func _update_visitors(delta: float) -> void:
 		elif visitor["state"] == "riding":
 			visitor["wait"] -= delta
 			if visitor["wait"] <= 0.0:
+				visitor["satisfaction"] = minf(100.0, float(visitor.get("satisfaction", 80.0)) + 12.0)
 				_remove_visitor_from_queue(ride_index, person_id)
 				rides[ride_index]["busy"] = false
 				var ride_price := int(rides[ride_index].get("ticket_price", RIDE_TICKET_PRICE))
@@ -1474,6 +1497,7 @@ func _update_visitors(delta: float) -> void:
 					park_rating = minf(100.0, park_rating + 1.0)
 					_update_hud()
 					_set_hint(("Посетитель купил еду" if shop_kind == "food" else "Посетитель купил напиток") + ": +🪙 " + str(sale_price))
+				visitor["satisfaction"] = minf(100.0, float(visitor.get("satisfaction", 80.0)) + 8.0)
 				visitor["service_done"] = true
 				_send_visitor_to_exit(visitor, person)
 		elif visitor["state"] == "walking_to_facility":
@@ -1511,11 +1535,13 @@ func _update_visitors(delta: float) -> void:
 					park_rating = minf(100.0, park_rating + 1.0)
 					_update_hud()
 					_set_hint(("Посетитель воспользовался туалетом" if facility_kind == "toilet" else "Посетитель отдохнул") + ": +🪙 " + str(service_price))
+				visitor["satisfaction"] = minf(100.0, float(visitor.get("satisfaction", 80.0)) + 8.0)
 				visitor["service_done"] = true
 				_send_visitor_to_exit(visitor, person)
 		elif visitor["state"] == "leaving":
 			var exit_route: Array = visitor["route"]
 			if exit_route.is_empty():
+				_record_visitor_feedback(visitor)
 				person.queue_free()
 				visitors.remove_at(i)
 				_update_hud()
@@ -1526,6 +1552,7 @@ func _update_visitors(delta: float) -> void:
 			if exit_direction.length() < 0.3:
 				visitor["route_index"] += 1
 				if visitor["route_index"] >= exit_route.size():
+					_record_visitor_feedback(visitor)
 					person.queue_free()
 					visitors.remove_at(i)
 					_update_hud()
@@ -1533,6 +1560,32 @@ func _update_visitors(delta: float) -> void:
 				person.position += exit_direction.normalized() * delta * 2.4
 				person.look_at(Vector3(exit_waypoint.x, person.position.y, exit_waypoint.z), Vector3.UP)
 
+
+func _record_visitor_feedback(visitor: Dictionary) -> void:
+	if bool(visitor.get("feedback_recorded", false)):
+		return
+	visitor["feedback_recorded"] = true
+	var score := float(visitor.get("satisfaction", 80.0))
+	if cleanliness < 50.0:
+		score -= (50.0 - cleanliness) * 0.18
+	var ride_index := int(visitor.get("ride_index", -1))
+	if ride_index >= 0 and ride_index < rides.size():
+		var condition := float(rides[ride_index].get("condition", 100.0))
+		if condition < 50.0:
+			score -= (50.0 - condition) * 0.12
+	score = clampf(score, 0.0, 100.0)
+	guest_satisfaction_sum += score
+	guest_feedback_count += 1
+	guest_satisfaction = guest_satisfaction_sum / float(guest_feedback_count)
+	if score >= 75.0:
+		positive_reviews += 1
+		park_rating = minf(100.0, park_rating + 0.35)
+	elif score < 45.0:
+		negative_reviews += 1
+		park_rating = maxf(0.0, park_rating - 0.6)
+	else:
+		park_rating = clampf(park_rating + (score - 60.0) * 0.008, 0.0, 100.0)
+	_update_hud()
 
 func _send_visitor_to_service(visitor: Dictionary, person: Node3D) -> void:
 	if bool(visitor.get("service_done", false)):
@@ -1686,11 +1739,11 @@ func _update_hud() -> void:
 	if coins_label != null:
 		coins_label.text = "PARKORA   🪙 " + _format_number(coins)
 	if visitors_label != null:
-		visitors_label.text = "👥 " + str(visitors.size()) + " / " + str(MAX_VISITORS) + "    Всего: " + str(total_visitors) + "    ⭐ " + str(roundi(park_rating)) + "    🧹 " + str(roundi(cleanliness)) + "%"
+		visitors_label.text = "👥 " + str(visitors.size()) + " / " + str(MAX_VISITORS) + "    Всего: " + str(total_visitors) + "    ⭐ " + str(roundi(park_rating)) + "    😊 " + str(roundi(guest_satisfaction)) + "%    🧹 " + str(roundi(cleanliness)) + "%"
 	if ride_panel != null and ride_panel.visible:
 		_update_ride_panel()
 	if staff_label != null:
-		staff_label.text = "🧹 Уборщики: " + str(cleaners) + "   🔧 Механики: " + str(mechanics) + "\nМусор: " + str(litter_nodes.size()) + "   🚻 " + str(_count_facilities("toilet")) + "   🪑 " + str(_count_facilities("rest"))
+		staff_label.text = "🧹 Уборщики: " + str(cleaners) + "   🔧 Механики: " + str(mechanics) + "\nМусор: " + str(litter_nodes.size()) + "   🚻 " + str(_count_facilities("toilet")) + "   🪑 " + str(_count_facilities("rest")) + "\nОтзывы: 👍 " + str(positive_reviews) + " / 👎 " + str(negative_reviews)
 	if hire_cleaner_button != null:
 		hire_cleaner_button.disabled = coins < 300
 	_update_land_panel()
