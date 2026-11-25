@@ -476,7 +476,7 @@ func _update_economy(delta: float) -> void:
 	if maintenance_timer > 0.0:
 		return
 	maintenance_timer = 10.0
-	var upkeep := rides.size() * 3
+	var upkeep := rides.size() * 3 + shops.size()
 	if upkeep <= 0:
 		return
 	total_expenses += upkeep
