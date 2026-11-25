@@ -70,7 +70,7 @@ The player starts with a small, underdeveloped amusement park and personally tur
 3. Add configurable attraction prices and upgrade levels.
 4. Expand visitor needs, toilets/rest areas, and satisfaction feedback.
 5. Add staff, wages, and maintenance tasks.
-6. Add land expansion, unlock milestones, and balanced offline earnings.
+6. Expand land, objectives, offline settlement, and economy balancing based on device testing.
 7. Improve visuals, animations, sound, and mobile UI after the management loop is reliable.
 
 ## Current implementation status
