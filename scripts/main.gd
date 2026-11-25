@@ -1864,7 +1864,7 @@ func _update_hud() -> void:
 	if economy_label != null:
 		var lifetime_profit := total_income - total_expenses
 		var period_profit := period_income - period_expenses
-		economy_label.text = "Доход: вход " + _format_number(admission_income) + " | аттракционы " + _format_number(ride_income) + " | услуги " + _format_number(service_income) + "\nРасходы: персонал " + _format_number(staff_expenses) + " | объекты " + _format_number(facility_expenses) + " | аттракционы " + _format_number(ride_maintenance_expenses) + "\nЗа минуту: доход +" + _format_number(period_income) + " / расход −" + _format_number(period_expenses) + " / итог " + ("+" if period_profit >= 0 else "−") + _format_number(absi(period_profit)) + "   Всего: " + ("+" if lifetime_profit >= 0 else "−") + _format_number(absi(lifetime_profit)) + "\n" + _service_object_report()
+		economy_label.text = "Доход: вход " + _format_number(admission_income) + " | аттракционы " + _format_number(ride_income) + " | услуги " + _format_number(service_income) + "\nРасходы: персонал " + _format_number(staff_expenses) + " | объекты " + _format_number(facility_expenses) + " | аттракционы " + _format_number(ride_maintenance_expenses) + "\nЗа минуту: доход +" + _format_number(period_income) + " / расход −" + _format_number(period_expenses) + " / итог " + ("+" if period_profit >= 0 else "−") + _format_number(absi(period_profit)) + "   Всего: " + ("+" if lifetime_profit >= 0 else "−") + _format_number(absi(lifetime_profit)) + "\n" + _service_queue_summary() + "\n" + _service_object_report()
 
 
 func _sync_service_object_save(kind: String, position: Vector3, data: Dictionary) -> void:
@@ -1876,6 +1876,18 @@ func _sync_service_object_save(kind: String, position: Vector3, data: Dictionary
 			saved["expenses"] = int(data.get("expenses", 0))
 			built_objects[i] = saved
 			return
+
+
+func _service_queue_summary() -> String:
+	var active := 0
+	var waiting := 0
+	for visitor in visitors:
+		var state := str(visitor.get("state", ""))
+		if state in ["walking_to_shop", "waiting_for_shop", "shopping", "walking_to_facility", "waiting_for_facility", "using_facility"]:
+			active += 1
+		if state in ["waiting_for_shop", "waiting_for_facility"]:
+			waiting += 1
+	return "Обслуживание: " + str(active) + " • в очереди: " + str(waiting)
 
 
 func _service_object_report() -> String:
