@@ -1,7 +1,7 @@
 extends Node3D
 
 const STARTING_COINS := 5000
-const BUILD_COSTS := {"carousel": 1200, "ferris": 2400, "tree": 100, "path": 25, "food": 650, "drink": 500}
+const BUILD_COSTS := {"carousel": 1200, "ferris": 2400, "tree": 100, "path": 25, "food": 650, "drink": 500, "toilet": 450, "rest": 350}
 const RIDE_TICKET_PRICE := 35
 const ENTRY_TICKET_PRICE := 10
 const MAX_VISITORS := 14
@@ -19,6 +19,7 @@ var touch_dragged := false
 var visitors: Array[Dictionary] = []
 var rides: Array[Dictionary] = []
 var shops: Array[Dictionary] = []
+var facilities: Array[Dictionary] = []
 var path_cells: Dictionary = {}
 var spawn_timer := 1.0
 var total_visitors := 0
@@ -245,6 +246,8 @@ func _create_ui() -> void:
 	_add_build_button(row, "Дорожка\n🪙 25", "path")
 	_add_build_button(row, "Еда 🍔\n🪙 650", "food")
 	_add_build_button(row, "Напитки 🥤\n🪙 500", "drink")
+	_add_build_button(row, "Туалет 🚻\n🪙 450", "toilet")
+	_add_build_button(row, "Отдых 🪑\n🪙 350", "rest")
 	_add_clear_button(row)
 	_create_ride_management_panel(root)
 	_create_staff_panel(root)
@@ -518,7 +521,7 @@ func _sync_ride_save(ride_index: int) -> void:
 func _add_build_button(parent: HBoxContainer, caption: String, build_type: String) -> void:
 	var button := Button.new()
 	button.text = caption
-	button.custom_minimum_size = Vector2(112, 72)
+	button.custom_minimum_size = Vector2(96, 72)
 	button.add_theme_font_size_override("font_size", 14)
 	button.pressed.connect(_select_build.bind(build_type))
 	parent.add_child(button)
@@ -528,7 +531,7 @@ func _add_build_button(parent: HBoxContainer, caption: String, build_type: Strin
 func _add_clear_button(parent: HBoxContainer) -> void:
 	var button := Button.new()
 	button.text = "Отмена"
-	button.custom_minimum_size = Vector2(78, 72)
+	button.custom_minimum_size = Vector2(70, 72)
 	button.add_theme_font_size_override("font_size", 16)
 	button.pressed.connect(_select_build.bind(""))
 	parent.add_child(button)
@@ -559,6 +562,10 @@ func _build_name(build_type: String) -> String:
 			return "Киоск еды"
 		"drink":
 			return "Киоск напитков"
+		"toilet":
+			return "Туалет"
+		"rest":
+			return "Зона отдыха"
 	return "Объект"
 
 
@@ -611,7 +618,7 @@ func _place_selected(position: Vector3) -> void:
 	if coins < cost:
 		_set_hint("Не хватает монет для строительства")
 		return
-	if selected_build in ["carousel", "ferris", "food", "drink"]:
+	if selected_build in ["carousel", "ferris", "food", "drink", "toilet", "rest"]:
 		if _find_path(Vector3(0, 0, 13), position + Vector3(0, 0, 2.0)).is_empty():
 			_set_hint("Подведи дорожку к объекту — посетители должны иметь к нему доступ")
 			return
@@ -627,6 +634,8 @@ func _place_selected(position: Vector3) -> void:
 			_register_path(position)
 		"food", "drink":
 			_create_shop(selected_build, position)
+		"toilet", "rest":
+			_create_facility(selected_build, position)
 	coins -= cost
 	var saved_ride := {"type": selected_build, "position": position}
 	if selected_build in ["carousel", "ferris"] and not rides.is_empty():
@@ -654,6 +663,24 @@ func _create_shop(shop_type: String, position: Vector3) -> void:
 	_add_box_local(kiosk, Vector3(0, 2.35, 0), Vector3(2.6, 0.18, 2.2), yellow_material)
 	_add_box_local(kiosk, Vector3(0, 2.05, -0.85), Vector3(2.5, 0.55, 0.12), green_material if shop_type == "food" else blue_material)
 	shops.append({"kind": shop_type, "position": position, "timer": 5.0, "served": 0})
+
+func _create_facility(facility_type: String, position: Vector3) -> void:
+	var building := Node3D.new()
+	building.position = position
+	add_child(building)
+	if facility_type == "toilet":
+		_add_box_local(building, Vector3(0, 1.0, 0), Vector3(2.5, 2.0, 2.2), cream_material)
+		_add_box_local(building, Vector3(0, 2.1, 0), Vector3(2.7, 0.22, 2.4), blue_material)
+		_add_box_local(building, Vector3(0, 1.25, -1.12), Vector3(0.9, 0.85, 0.08), blue_material)
+		_add_box_local(building, Vector3(0, 2.65, 0), Vector3(0.7, 0.35, 0.15), yellow_material)
+	else:
+		_add_box_local(building, Vector3(0, 0.35, 0), Vector3(3.0, 0.35, 1.6), wood_material)
+		_add_box_local(building, Vector3(-1.15, 0.85, 0), Vector3(0.18, 0.8, 1.6), wood_material)
+		_add_box_local(building, Vector3(1.15, 0.85, 0), Vector3(0.18, 0.8, 1.6), wood_material)
+		_add_box_local(building, Vector3(0, 1.65, 0), Vector3(3.2, 0.18, 1.9), green_material)
+		for i in range(3):
+			_add_cylinder_local(building, Vector3(-0.8 + float(i) * 0.8, 0.9, 0), 0.08, 1.0, wood_material)
+	facilities.append({"kind": facility_type, "position": position, "served": 0})
 
 
 func _create_tree(position: Vector3) -> void:
@@ -746,6 +773,8 @@ func _load_game() -> void:
 				_register_path(object_position)
 			"food", "drink":
 				_create_shop(object_type, object_position)
+			"toilet", "rest":
+				_create_facility(object_type, object_position)
 		if object_type in ["carousel", "ferris"] and not rides.is_empty():
 			var restored_ride: Dictionary = rides[rides.size() - 1]
 			restored_ride["level"] = int(saved_object.get("level", 1))
@@ -789,7 +818,7 @@ func _update_economy(delta: float) -> void:
 	if maintenance_timer > 0.0:
 		return
 	maintenance_timer = 10.0
-	var upkeep := shops.size() + cleaners * 8
+	var upkeep := shops.size() + facilities.size() * 2 + cleaners * 8
 	for ride in rides:
 		upkeep += 2 + int(ride.get("level", 1))
 	if upkeep <= 0:
@@ -835,7 +864,7 @@ func _spawn_visitor() -> void:
 		rides[target_index]["queue"] = queue
 		person.queue_free()
 		return
-	visitors.append({"node": person, "person_id": person.get_instance_id(), "target": target, "route": route, "route_index": 0, "route_queue_index": queue.size() - 1, "patience": 45.0, "state": "walking", "wait": 0.0, "ride_index": target_index, "hunger": randf_range(15.0, 35.0), "thirst": randf_range(20.0, 40.0), "shop_index": -1, "service_done": false, "willingness_to_pay": willingness_to_pay})
+	visitors.append({"node": person, "person_id": person.get_instance_id(), "target": target, "route": route, "route_index": 0, "route_queue_index": queue.size() - 1, "patience": 45.0, "state": "walking", "wait": 0.0, "ride_index": target_index, "hunger": randf_range(15.0, 35.0), "thirst": randf_range(20.0, 40.0), "hygiene": randf_range(10.0, 25.0), "rest": randf_range(10.0, 25.0), "shop_index": -1, "facility_index": -1, "service_done": false, "willingness_to_pay": willingness_to_pay})
 	coins += ENTRY_TICKET_PRICE
 	total_visitors += 1
 	total_income += ENTRY_TICKET_PRICE
@@ -956,6 +985,8 @@ func _update_visitors(delta: float) -> void:
 			continue
 		visitor["hunger"] = minf(100.0, float(visitor.get("hunger", 0.0)) + delta * 0.22)
 		visitor["thirst"] = minf(100.0, float(visitor.get("thirst", 0.0)) + delta * 0.3)
+		visitor["hygiene"] = minf(100.0, float(visitor.get("hygiene", 0.0)) + delta * 0.12)
+		visitor["rest"] = minf(100.0, float(visitor.get("rest", 0.0)) + delta * 0.08)
 		var person_id: int = visitor["person_id"]
 		var queue_index := _find_visitor_queue_index(ride_index, person_id)
 		if visitor["state"] == "walking":
@@ -1059,6 +1090,41 @@ func _update_visitors(delta: float) -> void:
 					_set_hint(("Посетитель купил еду" if shop_kind == "food" else "Посетитель купил напиток") + ": +🪙 " + str(sale_price))
 				visitor["service_done"] = true
 				_send_visitor_to_exit(visitor, person)
+		elif visitor["state"] == "walking_to_facility":
+			var facility_route: Array = visitor["route"]
+			if facility_route.is_empty():
+				_send_visitor_to_exit(visitor, person)
+				continue
+			var facility_waypoint: Vector3 = facility_route[visitor["route_index"]]
+			var facility_direction: Vector3 = facility_waypoint - person.position
+			facility_direction.y = 0.0
+			if facility_direction.length() < 0.3:
+				visitor["route_index"] += 1
+				if visitor["route_index"] >= facility_route.size():
+					visitor["state"] = "using_facility"
+					visitor["wait"] = 4.0
+			else:
+				person.position += facility_direction.normalized() * delta * 2.2
+				person.look_at(Vector3(facility_waypoint.x, person.position.y, facility_waypoint.z), Vector3.UP)
+		elif visitor["state"] == "using_facility":
+			visitor["wait"] -= delta
+			if visitor["wait"] <= 0.0:
+				var facility_index: int = int(visitor.get("facility_index", -1))
+				if facility_index >= 0 and facility_index < facilities.size():
+					var facility_kind: String = facilities[facility_index]["kind"]
+					var service_price := 8 if facility_kind == "toilet" else 6
+					coins += service_price
+					total_income += service_price
+					facilities[facility_index]["served"] = int(facilities[facility_index].get("served", 0)) + 1
+					if facility_kind == "toilet":
+						visitor["hygiene"] = 0.0
+					else:
+						visitor["rest"] = 0.0
+					park_rating = minf(100.0, park_rating + 1.0)
+					_update_hud()
+					_set_hint(("Посетитель воспользовался туалетом" if facility_kind == "toilet" else "Посетитель отдохнул") + ": +🪙 " + str(service_price))
+				visitor["service_done"] = true
+				_send_visitor_to_exit(visitor, person)
 		elif visitor["state"] == "leaving":
 			var exit_route: Array = visitor["route"]
 			if exit_route.is_empty():
@@ -1081,35 +1147,58 @@ func _update_visitors(delta: float) -> void:
 
 
 func _send_visitor_to_service(visitor: Dictionary, person: Node3D) -> void:
-	if bool(visitor.get("service_done", false)) or shops.is_empty():
+	if bool(visitor.get("service_done", false)):
 		_send_visitor_to_exit(visitor, person)
 		return
-	var best_shop := -1
+	var best_kind := ""
+	var best_index := -1
 	var best_route: Array = []
-	var best_score := -INF
+	var best_score := 25.0
 	for shop_index in range(shops.size()):
 		var shop_kind: String = shops[shop_index]["kind"]
 		var need_level := float(visitor.get("hunger", 0.0)) if shop_kind == "food" else float(visitor.get("thirst", 0.0))
+		var price := 18 if shop_kind == "food" else 12
+		if need_level < 30.0 or price > int(visitor.get("willingness_to_pay", 35)):
+			continue
 		var shop_position: Vector3 = shops[shop_index]["position"]
-		var service_position := shop_position + Vector3(0, 0, 2.0)
-		var candidate_route := _find_path(person.position, service_position)
+		var candidate_route := _find_path(person.position, shop_position + Vector3(0, 0, 2.0))
 		if candidate_route.is_empty():
 			continue
-		var distance := person.position.distance_to(shop_position)
-		var score := need_level - distance * 0.5
+		var score := need_level - person.position.distance_to(shop_position) * 0.5
 		if score > best_score:
 			best_score = score
-			best_shop = shop_index
+			best_kind = shop_kind
+			best_index = shop_index
 			best_route = candidate_route
-	if best_shop < 0:
+	for facility_index in range(facilities.size()):
+		var facility_kind: String = facilities[facility_index]["kind"]
+		var need_level := float(visitor.get("hygiene", 0.0)) if facility_kind == "toilet" else float(visitor.get("rest", 0.0))
+		var price := 8 if facility_kind == "toilet" else 6
+		if need_level < 30.0 or price > int(visitor.get("willingness_to_pay", 35)):
+			continue
+		var facility_position: Vector3 = facilities[facility_index]["position"]
+		var candidate_route := _find_path(person.position, facility_position + Vector3(0, 0, 2.0))
+		if candidate_route.is_empty():
+			continue
+		var score := need_level - person.position.distance_to(facility_position) * 0.5
+		if score > best_score:
+			best_score = score
+			best_kind = facility_kind
+			best_index = facility_index
+			best_route = candidate_route
+	if best_index < 0:
 		_send_visitor_to_exit(visitor, person)
 		return
-	var selected_kind: String = shops[best_shop]["kind"]
-	visitor["shop_index"] = best_shop
 	visitor["route"] = best_route
 	visitor["route_index"] = 0
-	visitor["state"] = "walking_to_shop"
-	_set_hint("Посетитель направился в " + ("киоск еды" if selected_kind == "food" else "киоск напитков"))
+	if best_kind in ["food", "drink"]:
+		visitor["shop_index"] = best_index
+		visitor["state"] = "walking_to_shop"
+		_set_hint("Посетитель направился в " + ("киоск еды" if best_kind == "food" else "киоск напитков"))
+	else:
+		visitor["facility_index"] = best_index
+		visitor["state"] = "walking_to_facility"
+		_set_hint("Посетитель направился " + ("в туалет" if best_kind == "toilet" else "в зону отдыха"))
 
 
 func _send_visitor_to_exit(visitor: Dictionary, person: Node3D) -> void:
