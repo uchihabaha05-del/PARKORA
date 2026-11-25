@@ -18,6 +18,7 @@ var build_buttons: Dictionary = {}
 var touch_dragged := false
 var visitors: Array[Dictionary] = []
 var rides: Array[Dictionary] = []
+var path_cells: Dictionary = {}
 var spawn_timer := 1.0
 var total_visitors := 0
 var total_income := 0
@@ -117,7 +118,9 @@ func _create_ground() -> void:
 
 	for x in range(-2, 3):
 		for z in range(5, 9):
-			_add_box(Vector3(float(x) * 2.0, 0.015, float(z) * 2.0), Vector3(1.95, 0.08, 1.95), path_material)
+			var tile_position := Vector3(float(x) * 2.0, 0.015, float(z) * 2.0)
+			_add_box(tile_position, Vector3(1.95, 0.08, 1.95), path_material)
+			_register_path(tile_position)
 
 
 func _create_entrance() -> void:
@@ -126,6 +129,8 @@ func _create_entrance() -> void:
 	_add_box(Vector3(5.5, 1.1, 17.0), Vector3(0.65, 2.2, 0.65), cream_material)
 	_add_box(Vector3(0, 2.65, 17.0), Vector3(3.8, 0.55, 0.7), yellow_material)
 	_add_box(Vector3(0, 0.12, 11.0), Vector3(3.0, 0.18, 12.0), path_material)
+	for z in range(5, 18, 2):
+		_register_path(Vector3(0, 0, float(z)))
 
 
 func _create_starter_decoration() -> void:
@@ -307,6 +312,7 @@ func _place_selected(position: Vector3) -> void:
 			_create_tree(position)
 		"path":
 			_add_box(position + Vector3(0, 0.04, 0), Vector3(2.0, 0.12, 2.0), path_material)
+			_register_path(position)
 	coins -= cost
 	_update_hud()
 	_set_hint(_build_name(selected_build) + " построено! 🪙 " + str(coins))
@@ -395,6 +401,59 @@ func _spawn_visitor() -> void:
 	total_income += ENTRY_TICKET_PRICE
 	_update_hud()
 	_set_hint("Новый посетитель вошёл в парк: +🪙 " + str(ENTRY_TICKET_PRICE))
+
+
+func _register_path(position: Vector3) -> void:
+	var cell := Vector2i(roundi(position.x / 2.0), roundi(position.z / 2.0))
+	path_cells[cell] = true
+
+
+func _find_nearest_path_cell(position: Vector3, max_distance: float = 6.0) -> Vector2i:
+	var best_cell := Vector2i(99999, 99999)
+	var best_distance := max_distance
+	for cell_variant in path_cells.keys():
+		var cell: Vector2i = cell_variant
+		var world_position := Vector3(float(cell.x) * 2.0, 0, float(cell.y) * 2.0)
+		var distance := Vector2(position.x, position.z).distance_to(Vector2(world_position.x, world_position.z))
+		if distance <= best_distance:
+			best_distance = distance
+			best_cell = cell
+	return best_cell
+
+
+func _find_path(start_position: Vector3, goal_position: Vector3) -> Array:
+	var start_cell := _find_nearest_path_cell(start_position)
+	var goal_cell := _find_nearest_path_cell(goal_position)
+	var result: Array = []
+	if start_cell.x == 99999 or goal_cell.x == 99999:
+		return result
+	var frontier: Array[Vector2i] = [start_cell]
+	var came_from: Dictionary = {start_cell: Vector2i(99999, 99999)}
+	var found := false
+	var directions: Array[Vector2i] = [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
+	while not frontier.is_empty():
+		var current: Vector2i = frontier.pop_front()
+		if current == goal_cell:
+			found = true
+			break
+		for direction in directions:
+			var next_cell := current + direction
+			if not path_cells.has(next_cell) or came_from.has(next_cell):
+				continue
+			came_from[next_cell] = current
+			frontier.append(next_cell)
+	if not found:
+		return result
+	var reversed_path: Array[Vector2i] = []
+	var cursor := goal_cell
+	while cursor != Vector2i(99999, 99999):
+		reversed_path.append(cursor)
+		cursor = came_from[cursor]
+	reversed_path.reverse()
+	for cell in reversed_path:
+		result.append(Vector3(float(cell.x) * 2.0, 0, float(cell.y) * 2.0))
+	result.append(goal_position)
+	return result
 
 
 func _find_best_ride() -> int:
