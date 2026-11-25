@@ -334,7 +334,7 @@ func _create_carousel(position: Vector3) -> void:
 		var seat_color: StandardMaterial3D = red_material if i % 2 == 0 else blue_material
 		_add_box_local(spinning, seat_position, Vector3(0.8, 0.8, 0.8), seat_color)
 		_add_cylinder_local(spinning, Vector3(cos(angle) * 2.25, 0.45, sin(angle) * 2.25), 0.07, 2.0, cream_material)
-	rides.append({"kind": "carousel", "position": position, "node": spinning, "timer": 0.0})
+	rides.append({"kind": "carousel", "position": position, "node": spinning, "timer": 0.0, "queue": [], "busy": false, "queue_capacity": 6})
 
 
 func _create_ferris_wheel(position: Vector3) -> void:
@@ -354,7 +354,7 @@ func _create_ferris_wheel(position: Vector3) -> void:
 		spoke.rotation.z = angle
 		var gondola := _add_box_local(wheel, Vector3(cos(angle) * 3.0, sin(angle) * 3.0, 0), Vector3(0.65, 0.55, 0.55), red_material if i % 2 == 0 else blue_material)
 		gondola.rotation.z = angle
-	rides.append({"kind": "ferris", "position": position, "node": wheel, "timer": 0.0})
+	rides.append({"kind": "ferris", "position": position, "node": wheel, "timer": 0.0, "queue": [], "busy": false, "queue_capacity": 6})
 
 
 func _animate_rides(delta: float) -> void:
@@ -370,7 +370,7 @@ func _animate_rides(delta: float) -> void:
 func _spawn_visitor() -> void:
 	if visitors.size() >= MAX_VISITORS or rides.is_empty():
 		return
-	var target_index := _find_nearest_ride(Vector3(0, 0, 11))
+	var target_index := _find_best_ride()
 	if target_index < 0:
 		return
 	var person := Node3D.new()
@@ -379,52 +379,105 @@ func _spawn_visitor() -> void:
 	var shirt: StandardMaterial3D = shirt_materials[randi() % shirt_materials.size()]
 	_add_capsule_local(person, Vector3(0, 0.85, 0), 0.28, 1.1, shirt)
 	_add_sphere_local(person, Vector3(0, 1.65, 0), 0.25, skin_material)
-	var target: Vector3 = rides[target_index]["position"] + Vector3(randf_range(-1.0, 1.0), 0, 3.5)
+	var queue: Array = rides[target_index]["queue"]
+	queue.append(person.get_instance_id())
+	rides[target_index]["queue"] = queue
+	var target := _queue_position(target_index, queue.size() - 1)
 	visitors.append({"node": person, "target": target, "state": "walking", "wait": 0.0, "ride_index": target_index})
 	coins += ENTRY_TICKET_PRICE
 	total_visitors += 1
 	total_income += ENTRY_TICKET_PRICE
 	_update_hud()
+	_set_hint("Новый посетитель вошёл в парк: +🪙 " + str(ENTRY_TICKET_PRICE))
 
 
-func _find_nearest_ride(from_position: Vector3) -> int:
+func _find_best_ride() -> int:
 	var best_index := -1
-	var best_distance := INF
+	var best_load := INF
 	for i in range(rides.size()):
-		var ride_position: Vector3 = rides[i]["position"]
-		var distance := from_position.distance_to(ride_position)
-		if distance < best_distance:
-			best_distance = distance
+		var queue: Array = rides[i]["queue"]
+		var capacity: int = rides[i]["queue_capacity"]
+		if queue.size() >= capacity:
+			continue
+		var load := float(queue.size())
+		if rides[i]["busy"]:
+			load += 0.5
+		if load < best_load:
+			best_load = load
 			best_index = i
 	return best_index
+
+
+func _queue_position(ride_index: int, queue_index: int) -> Vector3:
+	var ride_position: Vector3 = rides[ride_index]["position"]
+	return ride_position + Vector3(0, 0, 4.0 + float(queue_index) * 1.15)
+
+
+func _find_visitor_queue_index(ride_index: int, person_id: int) -> int:
+	var queue: Array = rides[ride_index]["queue"]
+	return queue.find(person_id)
+
+
+func _remove_visitor_from_queue(ride_index: int, person_id: int) -> void:
+	if ride_index < 0 or ride_index >= rides.size():
+		return
+	var queue: Array = rides[ride_index]["queue"]
+	var index := queue.find(person_id)
+	if index >= 0:
+		queue.remove_at(index)
+		rides[ride_index]["queue"] = queue
 
 
 func _update_visitors(delta: float) -> void:
 	for i in range(visitors.size() - 1, -1, -1):
 		var visitor: Dictionary = visitors[i]
 		var person: Node3D = visitor["node"]
+		var ride_index: int = visitor["ride_index"]
 		if not is_instance_valid(person):
 			visitors.remove_at(i)
 			continue
+		if ride_index < 0 or ride_index >= rides.size():
+			continue
+		var person_id := person.get_instance_id()
+		var queue_index := _find_visitor_queue_index(ride_index, person_id)
 		if visitor["state"] == "walking":
-			var target: Vector3 = visitor["target"]
-			var direction := target - person.position
+			if queue_index < 0:
+				continue
+			var target := _queue_position(ride_index, queue_index)
+			visitor["target"] = target
+			var direction: Vector3 = target - person.position
 			direction.y = 0.0
-			if direction.length() < 0.55:
-				visitor["state"] = "riding"
-				visitor["wait"] = 4.0
+			if direction.length() < 0.35:
+				visitor["state"] = "queued"
 			else:
 				person.position += direction.normalized() * delta * 2.2
 				person.look_at(Vector3(target.x, person.position.y, target.z), Vector3.UP)
+		elif visitor["state"] == "queued":
+			if queue_index < 0:
+				continue
+			var target := _queue_position(ride_index, queue_index)
+			var direction: Vector3 = target - person.position
+			direction.y = 0.0
+			if direction.length() > 0.18:
+				person.position += direction.normalized() * delta * 2.0
+				person.look_at(Vector3(target.x, person.position.y, target.z), Vector3.UP)
+			if queue_index == 0 and not rides[ride_index]["busy"] and direction.length() < 0.6:
+				rides[ride_index]["busy"] = true
+				visitor["state"] = "riding"
+				visitor["wait"] = 4.0
+				person.position = rides[ride_index]["position"] + Vector3(0, 0.2, 0)
+				_set_hint("Аттракцион начал обслуживать посетителя")
 		elif visitor["state"] == "riding":
 			visitor["wait"] -= delta
 			if visitor["wait"] <= 0.0:
+				_remove_visitor_from_queue(ride_index, person_id)
+				rides[ride_index]["busy"] = false
 				coins += RIDE_TICKET_PRICE
 				total_income += RIDE_TICKET_PRICE
 				visitor["state"] = "leaving"
 				visitor["target"] = Vector3(randf_range(-1.0, 1.0), 0, 16.0)
 				_update_hud()
-				_set_hint("Посетитель прокатился! +🪙 " + str(RIDE_TICKET_PRICE))
+				_set_hint("Катание завершено! +🪙 " + str(RIDE_TICKET_PRICE))
 		elif visitor["state"] == "leaving":
 			var exit_target: Vector3 = visitor["target"]
 			var exit_direction := exit_target - person.position
