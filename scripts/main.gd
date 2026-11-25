@@ -864,7 +864,7 @@ func _spawn_visitor() -> void:
 		rides[target_index]["queue"] = queue
 		person.queue_free()
 		return
-	visitors.append({"node": person, "person_id": person.get_instance_id(), "target": target, "route": route, "route_index": 0, "route_queue_index": queue.size() - 1, "patience": 45.0, "state": "walking", "wait": 0.0, "ride_index": target_index, "hunger": randf_range(15.0, 35.0), "thirst": randf_range(20.0, 40.0), "hygiene": randf_range(10.0, 25.0), "rest": randf_range(10.0, 25.0), "shop_index": -1, "facility_index": -1, "service_done": false, "willingness_to_pay": willingness_to_pay})
+	visitors.append({"node": person, "person_id": person.get_instance_id(), "target": target, "route": route, "route_index": 0, "route_queue_index": queue.size() - 1, "patience": 45.0, "state": "walking", "wait": 0.0, "ride_index": target_index, "hunger": randf_range(15.0, 35.0), "thirst": randf_range(20.0, 40.0), "hygiene": randf_range(25.0, 45.0), "rest": randf_range(25.0, 45.0), "shop_index": -1, "facility_index": -1, "service_done": false, "willingness_to_pay": willingness_to_pay})
 	coins += ENTRY_TICKET_PRICE
 	total_visitors += 1
 	total_income += ENTRY_TICKET_PRICE
@@ -985,8 +985,8 @@ func _update_visitors(delta: float) -> void:
 			continue
 		visitor["hunger"] = minf(100.0, float(visitor.get("hunger", 0.0)) + delta * 0.22)
 		visitor["thirst"] = minf(100.0, float(visitor.get("thirst", 0.0)) + delta * 0.3)
-		visitor["hygiene"] = minf(100.0, float(visitor.get("hygiene", 0.0)) + delta * 0.12)
-		visitor["rest"] = minf(100.0, float(visitor.get("rest", 0.0)) + delta * 0.08)
+		visitor["hygiene"] = minf(100.0, float(visitor.get("hygiene", 0.0)) + delta * 0.22)
+		visitor["rest"] = minf(100.0, float(visitor.get("rest", 0.0)) + delta * 0.18)
 		var person_id: int = visitor["person_id"]
 		var queue_index := _find_visitor_queue_index(ride_index, person_id)
 		if visitor["state"] == "walking":
