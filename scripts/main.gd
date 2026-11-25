@@ -25,6 +25,15 @@ var spawn_timer := 1.0
 var total_visitors := 0
 var total_income := 0
 var total_expenses := 0
+var admission_income := 0
+var ride_income := 0
+var service_income := 0
+var staff_expenses := 0
+var facility_expenses := 0
+var ride_maintenance_expenses := 0
+var period_income := 0
+var period_expenses := 0
+var reporting_timer := 60.0
 var maintenance_timer := 10.0
 var save_timer := 15.0
 var built_objects: Array[Dictionary] = []
@@ -76,6 +85,7 @@ func _process(delta: float) -> void:
 	_update_visitors(delta)
 	_animate_rides(delta)
 	_update_economy(delta)
+	_update_reporting_period(delta)
 	save_timer -= delta
 	if save_timer <= 0.0:
 		save_timer = 15.0
@@ -257,7 +267,7 @@ func _create_ui() -> void:
 
 func _create_staff_panel(root: Control) -> void:
 	var panel := PanelContainer.new()
-	panel.position = Vector2(24, 148)
+	panel.position = Vector2(24, 190)
 	panel.custom_minimum_size = Vector2(290, 146)
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0.07, 0.13, 0.17, 0.9)
@@ -767,6 +777,15 @@ func _load_game() -> void:
 	total_visitors = int(config.get_value("park", "total_visitors", 0))
 	total_income = int(config.get_value("park", "total_income", 0))
 	total_expenses = int(config.get_value("park", "total_expenses", 0))
+	admission_income = int(config.get_value("economy", "admission_income", 0))
+	ride_income = int(config.get_value("economy", "ride_income", 0))
+	service_income = int(config.get_value("economy", "service_income", 0))
+	staff_expenses = int(config.get_value("economy", "staff_expenses", 0))
+	facility_expenses = int(config.get_value("economy", "facility_expenses", 0))
+	ride_maintenance_expenses = int(config.get_value("economy", "ride_maintenance_expenses", 0))
+	period_income = int(config.get_value("economy", "period_income", 0))
+	period_expenses = int(config.get_value("economy", "period_expenses", 0))
+	reporting_timer = float(config.get_value("economy", "reporting_timer", 60.0))
 	park_rating = float(config.get_value("park", "park_rating", 50.0))
 	cleaners = int(config.get_value("park", "cleaners", 0))
 	mechanics = int(config.get_value("park", "mechanics", 0))
@@ -814,6 +833,15 @@ func _save_game() -> void:
 	config.set_value("park", "total_visitors", total_visitors)
 	config.set_value("park", "total_income", total_income)
 	config.set_value("park", "total_expenses", total_expenses)
+	config.set_value("economy", "admission_income", admission_income)
+	config.set_value("economy", "ride_income", ride_income)
+	config.set_value("economy", "service_income", service_income)
+	config.set_value("economy", "staff_expenses", staff_expenses)
+	config.set_value("economy", "facility_expenses", facility_expenses)
+	config.set_value("economy", "ride_maintenance_expenses", ride_maintenance_expenses)
+	config.set_value("economy", "period_income", period_income)
+	config.set_value("economy", "period_expenses", period_expenses)
+	config.set_value("economy", "reporting_timer", reporting_timer)
 	config.set_value("park", "park_rating", park_rating)
 	config.set_value("park", "cleaners", cleaners)
 	config.set_value("park", "mechanics", mechanics)
@@ -839,9 +867,16 @@ func _update_economy(delta: float) -> void:
 	if maintenance_timer > 0.0:
 		return
 	maintenance_timer = 10.0
-	var upkeep := shops.size() + facilities.size() * 2 + cleaners * 8 + mechanics * 12
+	var staff_cost := cleaners * 8 + mechanics * 12
+	var facility_cost := shops.size() + facilities.size() * 2
+	var ride_cost := 0
 	for ride in rides:
-		upkeep += 2 + int(ride.get("level", 1))
+		ride_cost += 2 + int(ride.get("level", 1))
+	var upkeep := staff_cost + facility_cost + ride_cost
+	staff_expenses += staff_cost
+	facility_expenses += facility_cost
+	ride_maintenance_expenses += ride_cost
+	period_expenses += upkeep
 	if upkeep <= 0:
 		return
 	total_expenses += upkeep
@@ -854,6 +889,17 @@ func _update_economy(delta: float) -> void:
 		_set_hint("Не хватает монет на обслуживание! Рейтинг парка снижается")
 	_update_cleanliness(10.0)
 	_update_ride_maintenance()
+	_update_hud()
+
+
+func _update_reporting_period(delta: float) -> void:
+	reporting_timer -= delta
+	if reporting_timer > 0.0:
+		return
+	while reporting_timer <= 0.0:
+		reporting_timer += 60.0
+		period_income = 0
+		period_expenses = 0
 	_update_hud()
 
 
@@ -908,6 +954,8 @@ func _spawn_visitor() -> void:
 	coins += ENTRY_TICKET_PRICE
 	total_visitors += 1
 	total_income += ENTRY_TICKET_PRICE
+	admission_income += ENTRY_TICKET_PRICE
+	period_income += ENTRY_TICKET_PRICE
 	_update_hud()
 	_set_hint("Новый посетитель вошёл в парк: +🪙 " + str(ENTRY_TICKET_PRICE))
 
@@ -1086,6 +1134,8 @@ func _update_visitors(delta: float) -> void:
 				var ride_price := int(rides[ride_index].get("ticket_price", RIDE_TICKET_PRICE))
 				coins += ride_price
 				total_income += ride_price
+				ride_income += ride_price
+				period_income += ride_price
 				rides[ride_index]["ride_revenue"] = int(rides[ride_index].get("ride_revenue", 0)) + ride_price
 				rides[ride_index]["served"] = int(rides[ride_index].get("served", 0)) + 1
 				rides[ride_index]["condition"] = maxf(0.0, float(rides[ride_index].get("condition", 100.0)) - 1.5)
@@ -1120,6 +1170,8 @@ func _update_visitors(delta: float) -> void:
 					var sale_price := 18 if shop_kind == "food" else 12
 					coins += sale_price
 					total_income += sale_price
+					service_income += sale_price
+					period_income += sale_price
 					shops[shop_index]["served"] += 1
 					if shop_kind == "food":
 						visitor["hunger"] = 0.0
@@ -1155,6 +1207,8 @@ func _update_visitors(delta: float) -> void:
 					var service_price := 8 if facility_kind == "toilet" else 6
 					coins += service_price
 					total_income += service_price
+					service_income += service_price
+					period_income += service_price
 					facilities[facility_index]["served"] = int(facilities[facility_index].get("served", 0)) + 1
 					if facility_kind == "toilet":
 						visitor["hygiene"] = 0.0
@@ -1348,8 +1402,9 @@ func _update_hud() -> void:
 	if hire_mechanic_button != null:
 		hire_mechanic_button.disabled = coins < 500
 	if economy_label != null:
-		var net_profit := total_income - total_expenses
-		economy_label.text = "Выручка: 🪙 " + _format_number(total_income) + "   Расходы: 🪙 " + _format_number(total_expenses) + "   Прибыль: 🪙 " + _format_number(net_profit)
+		var lifetime_profit := total_income - total_expenses
+		var period_profit := period_income - period_expenses
+		economy_label.text = "Доход: вход " + _format_number(admission_income) + " | аттракционы " + _format_number(ride_income) + " | услуги " + _format_number(service_income) + "\nРасходы: персонал " + _format_number(staff_expenses) + " | объекты " + _format_number(facility_expenses) + " | аттракционы " + _format_number(ride_maintenance_expenses) + "\nЗа минуту: доход +" + _format_number(period_income) + " / расход −" + _format_number(period_expenses) + " / итог " + ("+" if period_profit >= 0 else "−") + _format_number(absi(period_profit)) + "   Всего: " + ("+" if lifetime_profit >= 0 else "−") + _format_number(absi(lifetime_profit))
 
 
 func _count_facilities(kind: String) -> int:
