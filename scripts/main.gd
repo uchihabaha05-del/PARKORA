@@ -913,7 +913,7 @@ func _create_shop(shop_type: String, position: Vector3) -> void:
 	_add_box_local(kiosk, Vector3(0, 1.75, 0), Vector3(2.5, 0.18, 2.1), cream_material)
 	_add_box_local(kiosk, Vector3(0, 2.35, 0), Vector3(2.6, 0.18, 2.2), yellow_material)
 	_add_box_local(kiosk, Vector3(0, 2.05, -0.85), Vector3(2.5, 0.55, 0.12), green_material if shop_type == "food" else blue_material)
-	shops.append({"kind": shop_type, "position": position, "timer": 5.0, "served": 0, "revenue": 0})
+	shops.append({"kind": shop_type, "position": position, "timer": 5.0, "served": 0, "revenue": 0, "expenses": 0})
 
 func _create_facility(facility_type: String, position: Vector3) -> void:
 	var building := Node3D.new()
@@ -931,7 +931,7 @@ func _create_facility(facility_type: String, position: Vector3) -> void:
 		_add_box_local(building, Vector3(0, 1.65, 0), Vector3(3.2, 0.18, 1.9), green_material)
 		for i in range(3):
 			_add_cylinder_local(building, Vector3(-0.8 + float(i) * 0.8, 0.9, 0), 0.08, 1.0, wood_material)
-	facilities.append({"kind": facility_type, "position": position, "served": 0, "revenue": 0})
+	facilities.append({"kind": facility_type, "position": position, "served": 0, "revenue": 0, "expenses": 0})
 
 
 func _create_tree(position: Vector3) -> void:
@@ -1051,9 +1051,11 @@ func _load_game() -> void:
 		if object_type in ["food", "drink"] and not shops.is_empty():
 			shops[shops.size() - 1]["served"] = int(saved_object.get("served", 0))
 			shops[shops.size() - 1]["revenue"] = int(saved_object.get("revenue", 0))
+			shops[shops.size() - 1]["expenses"] = int(saved_object.get("expenses", 0))
 		if object_type in ["toilet", "rest"] and not facilities.is_empty():
 			facilities[facilities.size() - 1]["served"] = int(saved_object.get("served", 0))
 			facilities[facilities.size() - 1]["revenue"] = int(saved_object.get("revenue", 0))
+			facilities[facilities.size() - 1]["expenses"] = int(saved_object.get("expenses", 0))
 		if object_type in ["carousel", "ferris"] and not rides.is_empty():
 			var restored_ride: Dictionary = rides[rides.size() - 1]
 			restored_ride["level"] = int(saved_object.get("level", 1))
@@ -1202,6 +1204,12 @@ func _update_economy(delta: float) -> void:
 	var ride_cost := 0
 	for ride in rides:
 		ride_cost += 2 + int(ride.get("level", 1))
+	for shop in shops:
+		shop["expenses"] = int(shop.get("expenses", 0)) + 1
+		_sync_service_object_save(str(shop["kind"]), shop["position"], shop)
+	for facility in facilities:
+		facility["expenses"] = int(facility.get("expenses", 0)) + 2
+		_sync_service_object_save(str(facility["kind"]), facility["position"], facility)
 	var upkeep := staff_cost + facility_cost + ride_cost
 	staff_expenses += staff_cost
 	facility_expenses += facility_cost
@@ -1806,6 +1814,7 @@ func _sync_service_object_save(kind: String, position: Vector3, data: Dictionary
 		if saved.get("type", "") == kind and saved.get("position", Vector3.ZERO).distance_to(position) < 0.1:
 			saved["served"] = int(data.get("served", 0))
 			saved["revenue"] = int(data.get("revenue", 0))
+			saved["expenses"] = int(data.get("expenses", 0))
 			built_objects[i] = saved
 			return
 
@@ -1813,12 +1822,21 @@ func _sync_service_object_save(kind: String, position: Vector3, data: Dictionary
 func _service_object_report() -> String:
 	var top := "нет объектов"
 	var names := {"food": "Киоск еды", "drink": "Киоск напитков", "toilet": "Туалет", "rest": "Зона отдыха"}
-	var revenue := 0
+	var profit := -999999
+	var worst := "нет объектов"
+	var worst_profit := 999999
 	for item in shops + facilities:
-		if int(item.get("revenue", 0)) > revenue:
-			revenue = int(item.get("revenue", 0))
-			top = str(names.get(str(item.get("kind", "")), "Объект"))
-	return "Лидер по выручке: " + top + " • 🪙 " + _format_number(revenue)
+		var net := int(item.get("revenue", 0)) - int(item.get("expenses", 0))
+		var name := str(names.get(str(item.get("kind", "")), "Объект"))
+		if net > profit:
+			profit = net
+			top = name
+		if net < worst_profit:
+			worst_profit = net
+			worst = name
+	if profit == -999999:
+		return "Прибыль объектов: пока нет данных"
+	return "Прибыль: " + top + " " + ("+" if profit >= 0 else "−") + _format_number(absi(profit)) + " • Убыточный: " + worst + " " + ("+" if worst_profit >= 0 else "−") + _format_number(absi(worst_profit))
 
 
 func _count_facilities(kind: String) -> int:
