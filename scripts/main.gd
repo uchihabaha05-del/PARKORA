@@ -1299,6 +1299,8 @@ func _park_phase_multiplier() -> float:
 		return 1.4
 	if hour >= 8 and hour < 10:
 		return 0.75
+	if hour >= 10 and hour < 11:
+		return 1.0
 	if hour >= 20 and hour < 22:
 		return 0.7
 	if hour >= 14 and hour < 17:
