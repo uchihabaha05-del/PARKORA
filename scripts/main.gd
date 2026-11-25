@@ -903,7 +903,10 @@ func _update_visitors(delta: float) -> void:
 			if queue_index == 0 and not rides[ride_index]["busy"] and direction.length() < 0.6:
 				rides[ride_index]["busy"] = true
 				visitor["state"] = "riding"
-				visitor["wait"] = float(rides[ride_index].get("ride_duration", 4.0))
+				var effective_duration := float(rides[ride_index].get("ride_duration", 4.0))
+				if float(rides[ride_index].get("condition", 100.0)) < 50.0:
+					effective_duration *= 1.25
+				visitor["wait"] = effective_duration
 				person.position = rides[ride_index]["position"] + Vector3(0, 0.2, 0)
 				_set_hint("Аттракцион начал обслуживать посетителя")
 		elif visitor["state"] == "riding":
