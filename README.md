@@ -62,3 +62,5 @@ The project is an early playable foundation. Park progress is saved locally in `
 
 - Individual food, drink, toilet, and rest facilities track customer counts, revenue, recurring operating costs, and net profit; the HUD highlights the most and least profitable buildings
 - Service buildings limit active customer reservations and visitor routing favors less-loaded reachable facilities, reducing overcrowding
+
+- Service buildings use first-in-first-out customer queues, one active customer at a time, and a 45-second patience limit; long waits reduce guest satisfaction
