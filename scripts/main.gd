@@ -36,6 +36,12 @@ var ride_upgrade_button: Button
 var ride_price_label: Label
 var ride_condition_label: Label
 var ride_repair_button: Button
+var staff_label: Label
+var hire_cleaner_button: Button
+var cleaners := 0
+var cleanliness := 100.0
+var litter_nodes: Array[Node3D] = []
+var cleaning_timer := 4.0
 
 var grass_material: StandardMaterial3D
 var path_material: StandardMaterial3D
@@ -241,6 +247,82 @@ func _create_ui() -> void:
 	_add_build_button(row, "Напитки 🥤\n🪙 500", "drink")
 	_add_clear_button(row)
 	_create_ride_management_panel(root)
+	_create_staff_panel(root)
+
+
+func _create_staff_panel(root: Control) -> void:
+	var panel := PanelContainer.new()
+	panel.position = Vector2(24, 148)
+	panel.custom_minimum_size = Vector2(250, 86)
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.07, 0.13, 0.17, 0.9)
+	style.set_corner_radius_all(10)
+	style.content_margin_left = 10
+	style.content_margin_right = 10
+	style.content_margin_top = 7
+	style.content_margin_bottom = 7
+	panel.add_theme_stylebox_override("panel", style)
+	root.add_child(panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 5)
+	panel.add_child(column)
+	staff_label = Label.new()
+	staff_label.add_theme_color_override("font_color", Color.WHITE)
+	column.add_child(staff_label)
+	hire_cleaner_button = Button.new()
+	hire_cleaner_button.text = "Нанять уборщика  •  🪙 300"
+	hire_cleaner_button.custom_minimum_size = Vector2(0, 34)
+	hire_cleaner_button.pressed.connect(_hire_cleaner)
+	column.add_child(hire_cleaner_button)
+
+
+func _hire_cleaner() -> void:
+	if coins < 300:
+		_set_hint("Не хватает 300 монет для найма уборщика")
+		return
+	coins -= 300
+	cleaners += 1
+	_update_hud()
+	_save_game()
+	_set_hint("Нанят уборщик! Зарплата: 8 монет каждые 10 секунд")
+
+
+func _spawn_litter(near_position: Vector3) -> void:
+	if litter_nodes.size() >= 60:
+		return
+	var offset := Vector3(randf_range(-4.0, 4.0), 0.12, randf_range(-4.0, 4.0))
+	_create_litter(near_position + offset)
+	cleanliness = maxf(0.0, cleanliness - 1.2)
+	_update_hud()
+
+
+func _create_litter(position: Vector3) -> void:
+	var litter := Node3D.new()
+	litter.position = position
+	add_child(litter)
+	var piece := _add_box_local(litter, Vector3.ZERO, Vector3(0.28, 0.12, 0.22), yellow_material)
+	piece.rotation.y = randf_range(0.0, TAU)
+	litter_nodes.append(litter)
+
+
+func _update_cleanliness(interval: float) -> void:
+	cleaning_timer -= interval
+	if cleaning_timer > 0.0:
+		return
+	cleaning_timer = 4.0
+	if cleaners > 0 and not litter_nodes.is_empty():
+		var amount := mini(cleaners, litter_nodes.size())
+		for i in range(amount):
+			var litter := litter_nodes.pop_front()
+			if is_instance_valid(litter):
+				litter.queue_free()
+			cleanliness = minf(100.0, cleanliness + 2.5)
+	elif litter_nodes.size() > 0:
+		cleanliness = maxf(0.0, cleanliness - 0.5)
+	if cleanliness < 35.0:
+		park_rating = maxf(0.0, park_rating - 0.4)
+	elif cleanliness > 80.0:
+		park_rating = minf(100.0, park_rating + 0.15)
 
 
 func _create_ride_management_panel(root: Control) -> void:
@@ -640,6 +722,12 @@ func _load_game() -> void:
 	total_income = int(config.get_value("park", "total_income", 0))
 	total_expenses = int(config.get_value("park", "total_expenses", 0))
 	park_rating = float(config.get_value("park", "park_rating", 50.0))
+	cleaners = int(config.get_value("park", "cleaners", 0))
+	cleanliness = float(config.get_value("park", "cleanliness", 100.0))
+	var saved_litter: Array = config.get_value("park", "litter_positions", [])
+	for litter_position in saved_litter:
+		if litter_position is Vector3:
+			_create_litter(litter_position)
 	var saved_objects: Array = config.get_value("park", "built_objects", [])
 	for saved_object in saved_objects:
 		if not saved_object is Dictionary:
@@ -678,6 +766,13 @@ func _save_game() -> void:
 	config.set_value("park", "total_income", total_income)
 	config.set_value("park", "total_expenses", total_expenses)
 	config.set_value("park", "park_rating", park_rating)
+	config.set_value("park", "cleaners", cleaners)
+	config.set_value("park", "cleanliness", cleanliness)
+	var litter_positions: Array[Vector3] = []
+	for litter in litter_nodes:
+		if is_instance_valid(litter):
+			litter_positions.append(litter.position)
+	config.set_value("park", "litter_positions", litter_positions)
 	config.set_value("park", "built_objects", built_objects)
 	var error := config.save("user://parkora_save.cfg")
 	if error != OK:
@@ -694,7 +789,7 @@ func _update_economy(delta: float) -> void:
 	if maintenance_timer > 0.0:
 		return
 	maintenance_timer = 10.0
-	var upkeep := shops.size()
+	var upkeep := shops.size() + cleaners * 8
 	for ride in rides:
 		upkeep += 2 + int(ride.get("level", 1))
 	if upkeep <= 0:
@@ -707,11 +802,14 @@ func _update_economy(delta: float) -> void:
 		coins = 0
 		park_rating = maxf(0.0, park_rating - 1.0)
 		_set_hint("Не хватает монет на обслуживание! Рейтинг парка снижается")
+	_update_cleanliness(10.0)
 	_update_hud()
 
 
 func _visitor_spawn_interval() -> float:
-	return lerpf(6.0, 2.5, park_rating / 100.0)
+	var reputation_factor := park_rating / 100.0
+	var cleanliness_factor := cleanliness / 100.0
+	return lerpf(7.0, 2.5, reputation_factor * cleanliness_factor)
 
 
 func _spawn_visitor() -> void:
@@ -921,6 +1019,7 @@ func _update_visitors(delta: float) -> void:
 				rides[ride_index]["served"] = int(rides[ride_index].get("served", 0)) + 1
 				rides[ride_index]["condition"] = maxf(0.0, float(rides[ride_index].get("condition", 100.0)) - 1.5)
 				_sync_ride_save(ride_index)
+				_spawn_litter(rides[ride_index]["position"])
 				park_rating = minf(100.0, park_rating + 1.5)
 				_update_hud()
 				_set_hint("Катание завершено! +🪙 " + str(ride_price))
@@ -1110,9 +1209,13 @@ func _update_hud() -> void:
 	if coins_label != null:
 		coins_label.text = "PARKORA   🪙 " + _format_number(coins)
 	if visitors_label != null:
-		visitors_label.text = "👥 " + str(visitors.size()) + " / " + str(MAX_VISITORS) + "    Всего: " + str(total_visitors) + "    ⭐ " + str(roundi(park_rating)) + "    В очередях: " + str(_total_queued_visitors())
+		visitors_label.text = "👥 " + str(visitors.size()) + " / " + str(MAX_VISITORS) + "    Всего: " + str(total_visitors) + "    ⭐ " + str(roundi(park_rating)) + "    🧹 " + str(roundi(cleanliness)) + "%"
 	if ride_panel != null and ride_panel.visible:
 		_update_ride_panel()
+	if staff_label != null:
+		staff_label.text = "🧹 Уборщики: " + str(cleaners) + "   Мусор: " + str(litter_nodes.size())
+	if hire_cleaner_button != null:
+		hire_cleaner_button.disabled = coins < 300
 	if economy_label != null:
 		var net_profit := total_income - total_expenses
 		economy_label.text = "Выручка: 🪙 " + _format_number(total_income) + "   Расходы: 🪙 " + _format_number(total_expenses) + "   Прибыль: 🪙 " + _format_number(net_profit)
