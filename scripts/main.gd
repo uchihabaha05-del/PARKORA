@@ -383,7 +383,7 @@ func _spawn_visitor() -> void:
 	queue.append(person.get_instance_id())
 	rides[target_index]["queue"] = queue
 	var target := _queue_position(target_index, queue.size() - 1)
-	visitors.append({"node": person, "target": target, "state": "walking", "wait": 0.0, "ride_index": target_index})
+	visitors.append({"node": person, "person_id": person.get_instance_id(), "target": target, "state": "walking", "wait": 0.0, "ride_index": target_index})
 	coins += ENTRY_TICKET_PRICE
 	total_visitors += 1
 	total_income += ENTRY_TICKET_PRICE
@@ -435,14 +435,14 @@ func _update_visitors(delta: float) -> void:
 		var ride_index: int = visitor["ride_index"]
 		if not is_instance_valid(person):
 			if ride_index >= 0 and ride_index < rides.size():
-				_remove_visitor_from_queue(ride_index, person.get_instance_id())
+				_remove_visitor_from_queue(ride_index, visitor["person_id"])
 				if visitor["state"] == "riding":
 					rides[ride_index]["busy"] = false
 			visitors.remove_at(i)
 			continue
 		if ride_index < 0 or ride_index >= rides.size():
 			continue
-		var person_id := person.get_instance_id()
+		var person_id: int = visitor["person_id"]
 		var queue_index := _find_visitor_queue_index(ride_index, person_id)
 		if visitor["state"] == "walking":
 			if queue_index < 0:
