@@ -383,7 +383,13 @@ func _spawn_visitor() -> void:
 	queue.append(person.get_instance_id())
 	rides[target_index]["queue"] = queue
 	var target := _queue_position(target_index, queue.size() - 1)
-	visitors.append({"node": person, "person_id": person.get_instance_id(), "target": target, "state": "walking", "wait": 0.0, "ride_index": target_index})
+	var route := _find_path(person.position, target)
+	if route.is_empty():
+		queue.pop_back()
+		rides[target_index]["queue"] = queue
+		person.queue_free()
+		return
+	visitors.append({"node": person, "person_id": person.get_instance_id(), "target": target, "route": route, "route_index": 0, "route_queue_index": queue.size() - 1, "state": "walking", "wait": 0.0, "ride_index": target_index})
 	coins += ENTRY_TICKET_PRICE
 	total_visitors += 1
 	total_income += ENTRY_TICKET_PRICE
@@ -398,6 +404,8 @@ func _find_best_ride() -> int:
 		var queue: Array = rides[i]["queue"]
 		var capacity: int = rides[i]["queue_capacity"]
 		if queue.size() >= capacity:
+			continue
+		if _find_path(Vector3(0, 0, 13), _queue_position(i, 0)).is_empty():
 			continue
 		var load := float(queue.size())
 		if rides[i]["busy"]:
@@ -447,15 +455,23 @@ func _update_visitors(delta: float) -> void:
 		if visitor["state"] == "walking":
 			if queue_index < 0:
 				continue
-			var target := _queue_position(ride_index, queue_index)
-			visitor["target"] = target
-			var direction: Vector3 = target - person.position
+			if visitor["route_queue_index"] != queue_index:
+				visitor["route"] = _find_path(person.position, _queue_position(ride_index, queue_index))
+				visitor["route_index"] = 0
+				visitor["route_queue_index"] = queue_index
+			var route: Array = visitor["route"]
+			if route.is_empty():
+				continue
+			var waypoint: Vector3 = route[visitor["route_index"]]
+			var direction: Vector3 = waypoint - person.position
 			direction.y = 0.0
-			if direction.length() < 0.35:
-				visitor["state"] = "queued"
+			if direction.length() < 0.3:
+				visitor["route_index"] += 1
+				if visitor["route_index"] >= route.size():
+					visitor["state"] = "queued"
 			else:
 				person.position += direction.normalized() * delta * 2.2
-				person.look_at(Vector3(target.x, person.position.y, target.z), Vector3.UP)
+				person.look_at(Vector3(waypoint.x, person.position.y, waypoint.z), Vector3.UP)
 		elif visitor["state"] == "queued":
 			if queue_index < 0:
 				continue
