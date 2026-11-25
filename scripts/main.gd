@@ -1640,6 +1640,16 @@ func _record_visitor_feedback(visitor: Dictionary) -> void:
 		park_rating = clampf(park_rating + (score - 60.0) * 0.008, 0.0, 100.0)
 	_update_hud()
 
+func _service_building_load(kind: String, index: int) -> int:
+	var load := 0
+	for visitor in visitors:
+		if kind in ["food", "drink"] and int(visitor.get("shop_index", -1)) == index and str(visitor.get("state", "")) in ["walking_to_shop", "shopping"]:
+			load += 1
+		elif kind in ["toilet", "rest"] and int(visitor.get("facility_index", -1)) == index and str(visitor.get("state", "")) in ["walking_to_facility", "using_facility"]:
+			load += 1
+	return load
+
+
 func _send_visitor_to_service(visitor: Dictionary, person: Node3D) -> void:
 	if bool(visitor.get("service_done", false)):
 		_send_visitor_to_exit(visitor, person)
@@ -1650,6 +1660,9 @@ func _send_visitor_to_service(visitor: Dictionary, person: Node3D) -> void:
 	var best_score := 25.0
 	for shop_index in range(shops.size()):
 		var shop_kind: String = shops[shop_index]["kind"]
+		var shop_load := _service_building_load(shop_kind, shop_index)
+		if shop_load >= int(shops[shop_index].get("capacity", 2)):
+			continue
 		var need_level := float(visitor.get("hunger", 0.0)) if shop_kind == "food" else float(visitor.get("thirst", 0.0))
 		var price := 18 if shop_kind == "food" else 12
 		if need_level < 30.0 or price > int(visitor.get("willingness_to_pay", 35)):
@@ -1658,7 +1671,7 @@ func _send_visitor_to_service(visitor: Dictionary, person: Node3D) -> void:
 		var candidate_route := _find_path(person.position, shop_position + Vector3(0, 0, 2.0))
 		if candidate_route.is_empty():
 			continue
-		var score := need_level - person.position.distance_to(shop_position) * 0.5
+		var score := need_level - person.position.distance_to(shop_position) * 0.5 - float(shop_load) * 12.0
 		if score > best_score:
 			best_score = score
 			best_kind = shop_kind
@@ -1666,6 +1679,9 @@ func _send_visitor_to_service(visitor: Dictionary, person: Node3D) -> void:
 			best_route = candidate_route
 	for facility_index in range(facilities.size()):
 		var facility_kind: String = facilities[facility_index]["kind"]
+		var facility_load := _service_building_load(facility_kind, facility_index)
+		if facility_load >= int(facilities[facility_index].get("capacity", 2)):
+			continue
 		var facility_need_level := float(visitor.get("hygiene", 0.0)) if facility_kind == "toilet" else float(visitor.get("rest", 0.0))
 		var facility_price := 8 if facility_kind == "toilet" else 6
 		if facility_need_level < 30.0 or facility_price > int(visitor.get("willingness_to_pay", 35)):
@@ -1674,7 +1690,7 @@ func _send_visitor_to_service(visitor: Dictionary, person: Node3D) -> void:
 		var facility_candidate_route := _find_path(person.position, facility_position + Vector3(0, 0, 2.0))
 		if facility_candidate_route.is_empty():
 			continue
-		var facility_score := facility_need_level - person.position.distance_to(facility_position) * 0.5
+		var facility_score := facility_need_level - person.position.distance_to(facility_position) * 0.5 - float(facility_load) * 12.0
 		if facility_score > best_score:
 			best_score = facility_score
 			best_kind = facility_kind
