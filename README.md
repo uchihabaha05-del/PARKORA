@@ -53,4 +53,4 @@ PARKORA uses **ThemeParkManager by Supercent** as its primary gameplay reference
 - Mouse wheel / pinch: zoom
 - Select a construction item, then tap/click the ground to place it
 
-The project is an early playable foundation. Park progress is saved locally in `user://parkora_save.cfg` and restored when the game starts. Android export and APK packaging are intentionally deferred. The current visitor AI and economy are scaffolding. The next development stages will add management objectives, land expansion, and balanced offline earnings.
+The project is an early playable foundation. Park progress is saved locally in `user://parkora_save.cfg` and restored when the game starts. Android export and APK packaging are intentionally deferred. The current visitor AI and economy are scaffolding. The next development stages will focus on testing and balancing the management simulation, expanding visitor behavior, and improving the mobile interface.
