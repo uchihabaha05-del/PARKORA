@@ -68,6 +68,15 @@ The player starts with a small, underdeveloped amusement park and personally tur
 - Introduce sequential objectives that teach park management (welcome visitors, build attractions and services, earn revenue, hire staff, and improve rating/cleanliness), with one-time coin rewards and saved progress.
 - Park rating and visitor demand should react to actual service quality, not only elapsed visitor counts.
 
+
+### 7. Demand, park hours, and visitor segments
+- A full in-game day lasts 12 real minutes; the park operates from 08:00 to 22:00 in simulation time.
+- Morning and late-evening periods are quieter; midday and evening have distinct demand peaks. Arrival rate responds to park reputation, cleanliness, guest satisfaction, current time phase, and average ride-ticket pricing.
+- Guests belong to four behavioral segments: families, thrill-seekers, budget visitors, and comfort-oriented visitors.
+- Segments have different spending limits and queue patience, and prefer different attraction and service categories. These preferences influence routing without overriding reachability, queue capacity, or affordability.
+- The HUD reports the simulated clock, demand phase/multiplier, and current visitor-segment mix. The clock is saved locally.
+- Ticket pricing is demand-sensitive: high average prices reduce arrival attractiveness, while each guest still evaluates individual ride affordability and perceived value.
+
 ## Development priorities
 
 1. Make the current prototype's economy and visitor simulation consistent with the above loop.

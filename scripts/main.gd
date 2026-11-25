@@ -69,6 +69,8 @@ var positive_reviews := 0
 var negative_reviews := 0
 var guest_satisfaction := 75.0
 var service_sequence := 0
+var park_clock_minutes := 480.0
+var park_clock_refresh := 0.0
 
 var grass_material: StandardMaterial3D
 var path_material: StandardMaterial3D
@@ -100,6 +102,7 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	_update_park_clock(delta)
 	_update_visitors(delta)
 	_animate_rides(delta)
 	_update_economy(delta)
@@ -1011,6 +1014,7 @@ func _load_game() -> void:
 	reporting_timer = float(config.get_value("economy", "reporting_timer", 60.0))
 	objective_index = clampi(int(config.get_value("economy", "objective_index", 0)), 0, 6)
 	last_saved_unix = int(config.get_value("park", "last_saved_unix", 0))
+	park_clock_minutes = float(config.get_value("park", "park_clock_minutes", 480.0))
 	land_expansions = clampi(int(config.get_value("park", "land_expansions", 0)), 0, 3)
 	for zone_index in range(land_expansions):
 		_create_land_zone(zone_index)
@@ -1155,6 +1159,7 @@ func _save_game() -> void:
 	var config := ConfigFile.new()
 	last_saved_unix = int(Time.get_unix_time_from_system())
 	config.set_value("park", "last_saved_unix", last_saved_unix)
+	config.set_value("park", "park_clock_minutes", park_clock_minutes)
 	config.set_value("park", "coins", coins)
 	config.set_value("park", "total_visitors", total_visitors)
 	config.set_value("park", "total_income", total_income)
@@ -1261,17 +1266,129 @@ func _update_ride_maintenance() -> void:
 
 
 func _visitor_spawn_interval() -> float:
+	if not _is_park_open():
+		return 30.0
 	var reputation_factor := park_rating / 100.0
 	var cleanliness_factor := cleanliness / 100.0
 	var satisfaction_factor := guest_satisfaction / 100.0
-	return lerpf(7.0, 2.5, reputation_factor * cleanliness_factor * satisfaction_factor)
+	var quality_factor := reputation_factor * cleanliness_factor * satisfaction_factor
+	var price_factor := _park_price_attractiveness()
+	var demand_factor := _park_phase_multiplier() * price_factor
+	return clampf(lerpf(7.0, 2.5, quality_factor) / maxf(0.5, demand_factor), 1.8, 30.0)
+
+
+func _update_park_clock(delta: float) -> void:
+	# One complete in-game day lasts 12 real minutes.
+	park_clock_minutes = fposmod(park_clock_minutes + delta * 2.0, 1440.0)
+	park_clock_refresh -= delta
+	if park_clock_refresh <= 0.0:
+		park_clock_refresh = 1.0
+		_update_hud()
+
+
+func _is_park_open() -> bool:
+	var hour := int(floor(park_clock_minutes / 60.0))
+	return hour >= 8 and hour < 22
+
+
+func _park_phase_multiplier() -> float:
+	var hour := int(floor(park_clock_minutes / 60.0))
+	if hour >= 11 and hour < 14:
+		return 1.3
+	if hour >= 17 and hour < 20:
+		return 1.4
+	if hour >= 8 and hour < 10:
+		return 0.75
+	if hour >= 20 and hour < 22:
+		return 0.7
+	if hour >= 14 and hour < 17:
+		return 0.95
+	return 0.0
+
+
+func _park_phase_label() -> String:
+	var hour := int(floor(park_clock_minutes / 60.0))
+	if hour >= 22 or hour < 8:
+		return "Закрыто"
+	if hour >= 11 and hour < 14:
+		return "Час пик"
+	if hour >= 17 and hour < 20:
+		return "Вечерний пик"
+	if hour < 10:
+		return "Утро"
+	if hour >= 20:
+		return "Поздний вечер"
+	return "Обычная загрузка"
+
+
+func _park_clock_text() -> String:
+	var hour := int(floor(park_clock_minutes / 60.0))
+	var minute := int(floor(fposmod(park_clock_minutes, 60.0)))
+	return ("%02d" % hour) + ":" + ("%02d" % minute)
+
+
+func _park_price_attractiveness() -> float:
+	if rides.is_empty():
+		return 1.0
+	var total_price := 0.0
+	for ride in rides:
+		total_price += float(ride.get("ticket_price", RIDE_TICKET_PRICE))
+	var average_price := total_price / float(rides.size())
+	return clampf(1.0 - (average_price - 35.0) * 0.008, 0.65, 1.15)
+
+
+func _roll_visitor_profile() -> Dictionary:
+	var roll := randi_range(0, 99)
+	if roll < 35:
+		return {"type": "family", "label": "Семья", "willingness": randi_range(38, 68), "patience": 58.0, "queue_sensitivity": 0.85}
+	if roll < 60:
+		return {"type": "thrill", "label": "Любитель острых ощущений", "willingness": randi_range(42, 78), "patience": 48.0, "queue_sensitivity": 0.9}
+	if roll < 85:
+		return {"type": "budget", "label": "Экономный", "willingness": randi_range(20, 48), "patience": 42.0, "queue_sensitivity": 1.15}
+	return {"type": "comfort", "label": "Ценитель комфорта", "willingness": randi_range(35, 65), "patience": 62.0, "queue_sensitivity": 0.75}
+
+
+func _visitor_ride_preference(visitor_type: String, ride_kind: String) -> float:
+	match visitor_type:
+		"family":
+			return 7.0 if ride_kind == "carousel" else 1.0
+		"thrill":
+			return 8.0 if ride_kind == "ferris" else -2.0
+		"budget":
+			return 3.0 if ride_kind == "carousel" else 0.0
+		"comfort":
+			return 5.0 if ride_kind == "ferris" else 2.0
+	return 0.0
+
+
+func _visitor_service_preference(visitor_type: String, service_kind: String) -> float:
+	match visitor_type:
+		"family":
+			if service_kind == "food":
+				return 8.0
+			if service_kind == "toilet":
+				return 5.0
+			return 1.0
+		"thrill":
+			return 5.0 if service_kind == "drink" else 2.0
+		"budget":
+			return 3.0 if service_kind in ["food", "drink"] else 1.0
+		"comfort":
+			if service_kind == "rest":
+				return 9.0
+			if service_kind == "toilet":
+				return 5.0
+			return 2.0
+	return 0.0
 
 
 func _spawn_visitor() -> void:
-	if visitors.size() >= MAX_VISITORS or rides.is_empty():
+	if not _is_park_open() or visitors.size() >= MAX_VISITORS or rides.is_empty():
 		return
-	var willingness_to_pay := randi_range(25, 65)
-	var target_index := _find_best_ride(willingness_to_pay)
+	var profile := _roll_visitor_profile()
+	var willingness_to_pay := int(profile["willingness"])
+	var visitor_type := str(profile["type"])
+	var target_index := _find_best_ride(willingness_to_pay, visitor_type)
 	if target_index < 0:
 		return
 	var person := Node3D.new()
@@ -1292,7 +1409,7 @@ func _spawn_visitor() -> void:
 		return
 	var chosen_ride_price := int(rides[target_index].get("ticket_price", RIDE_TICKET_PRICE))
 	var ride_price_satisfaction := _ride_price_value_score(chosen_ride_price, willingness_to_pay)
-	visitors.append({"node": person, "person_id": person.get_instance_id(), "target": target, "route": route, "route_index": 0, "route_queue_index": queue.size() - 1, "patience": 45.0, "state": "walking", "wait": 0.0, "ride_index": target_index, "hunger": randf_range(15.0, 35.0), "thirst": randf_range(20.0, 40.0), "hygiene": randf_range(25.0, 45.0), "rest": randf_range(25.0, 45.0), "shop_index": -1, "facility_index": -1, "service_done": false, "willingness_to_pay": willingness_to_pay, "ride_price_satisfaction": ride_price_satisfaction, "satisfaction": randf_range(65.0, 85.0), "feedback_recorded": false})
+	visitors.append({"node": person, "person_id": person.get_instance_id(), "target": target, "route": route, "route_index": 0, "route_queue_index": queue.size() - 1, "patience": float(profile["patience"]), "state": "walking", "wait": 0.0, "ride_index": target_index, "hunger": randf_range(15.0, 35.0), "thirst": randf_range(20.0, 40.0), "hygiene": randf_range(25.0, 45.0), "rest": randf_range(25.0, 45.0), "shop_index": -1, "facility_index": -1, "service_done": false, "willingness_to_pay": willingness_to_pay, "visitor_type": visitor_type, "visitor_label": str(profile["label"]), "queue_sensitivity": float(profile["queue_sensitivity"]), "ride_price_satisfaction": ride_price_satisfaction, "satisfaction": randf_range(65.0, 85.0), "feedback_recorded": false})
 	coins += ENTRY_TICKET_PRICE
 	total_visitors += 1
 	total_income += ENTRY_TICKET_PRICE
@@ -1367,7 +1484,7 @@ func _ride_hourly_capacity(ride: Dictionary) -> int:
 	return maxi(1, floori(3600.0 / duration))
 
 
-func _find_best_ride(willingness_to_pay: int) -> int:
+func _find_best_ride(willingness_to_pay: int, visitor_type: String = "") -> int:
 	var best_index := -1
 	var best_load := INF
 	for i in range(rides.size()):
@@ -1387,7 +1504,8 @@ func _find_best_ride(willingness_to_pay: int) -> int:
 		var estimated_wait := float(queue.size()) * effective_duration
 		var price_score := _ride_price_value_score(ticket_price, willingness_to_pay)
 		var condition_penalty := (100.0 - condition) * 0.025
-		var load := estimated_wait + (100.0 - price_score) * 0.12 + condition_penalty
+		var preference_bonus := _visitor_ride_preference(visitor_type, str(ride.get("kind", "")))
+		var load := estimated_wait + (100.0 - price_score) * 0.12 + condition_penalty - preference_bonus
 		if load < best_load:
 			best_load = load
 			best_index = i
@@ -1461,7 +1579,8 @@ func _update_visitors(delta: float) -> void:
 			if queue_index < 0:
 				continue
 			visitor["patience"] -= delta
-			visitor["satisfaction"] = maxf(0.0, float(visitor.get("satisfaction", 80.0)) - delta * 0.45)
+			var queue_sensitivity := float(visitor.get("queue_sensitivity", 1.0))
+			visitor["satisfaction"] = maxf(0.0, float(visitor.get("satisfaction", 80.0)) - delta * 0.45 * queue_sensitivity)
 			if visitor["patience"] <= 0.0:
 				_remove_visitor_from_queue(ride_index, person_id)
 				visitor["state"] = "leaving"
@@ -1714,7 +1833,8 @@ func _send_visitor_to_service(visitor: Dictionary, person: Node3D) -> void:
 		var candidate_route := _find_path(person.position, shop_position + Vector3(0, 0, 2.0))
 		if candidate_route.is_empty():
 			continue
-		var score := need_level - person.position.distance_to(shop_position) * 0.5 - float(shop_load) * 12.0
+		var preference := _visitor_service_preference(str(visitor.get("visitor_type", "")), shop_kind)
+		var score := need_level - person.position.distance_to(shop_position) * 0.5 - float(shop_load) * 12.0 + preference
 		if score > best_score:
 			best_score = score
 			best_kind = shop_kind
@@ -1733,7 +1853,8 @@ func _send_visitor_to_service(visitor: Dictionary, person: Node3D) -> void:
 		var facility_candidate_route := _find_path(person.position, facility_position + Vector3(0, 0, 2.0))
 		if facility_candidate_route.is_empty():
 			continue
-		var facility_score := facility_need_level - person.position.distance_to(facility_position) * 0.5 - float(facility_load) * 12.0
+		var facility_preference := _visitor_service_preference(str(visitor.get("visitor_type", "")), facility_kind)
+		var facility_score := facility_need_level - person.position.distance_to(facility_position) * 0.5 - float(facility_load) * 12.0 + facility_preference
 		if facility_score > best_score:
 			best_score = facility_score
 			best_kind = facility_kind
@@ -1864,7 +1985,7 @@ func _update_hud() -> void:
 	if economy_label != null:
 		var lifetime_profit := total_income - total_expenses
 		var period_profit := period_income - period_expenses
-		economy_label.text = "Доход: вход " + _format_number(admission_income) + " | аттракционы " + _format_number(ride_income) + " | услуги " + _format_number(service_income) + "\nРасходы: персонал " + _format_number(staff_expenses) + " | объекты " + _format_number(facility_expenses) + " | аттракционы " + _format_number(ride_maintenance_expenses) + "\nЗа минуту: доход +" + _format_number(period_income) + " / расход −" + _format_number(period_expenses) + " / итог " + ("+" if period_profit >= 0 else "−") + _format_number(absi(period_profit)) + "   Всего: " + ("+" if lifetime_profit >= 0 else "−") + _format_number(absi(lifetime_profit)) + "\n" + _service_queue_summary() + "\n" + _service_object_report()
+		economy_label.text = "Парк: " + _park_clock_text() + " • " + _park_phase_label() + " • спрос x" + ("%.2f" % (_park_phase_multiplier() * _park_price_attractiveness())) + "\nДоход: вход " + _format_number(admission_income) + " | аттракционы " + _format_number(ride_income) + " | услуги " + _format_number(service_income) + "\nРасходы: персонал " + _format_number(staff_expenses) + " | объекты " + _format_number(facility_expenses) + " | аттракционы " + _format_number(ride_maintenance_expenses) + "\nЗа минуту: доход +" + _format_number(period_income) + " / расход −" + _format_number(period_expenses) + " / итог " + ("+" if period_profit >= 0 else "−") + _format_number(absi(period_profit)) + "   Всего: " + ("+" if lifetime_profit >= 0 else "−") + _format_number(absi(lifetime_profit)) + "\n" + _service_queue_summary() + "\n" + _visitor_profile_summary() + "\n" + _service_object_report()
 
 
 func _sync_service_object_save(kind: String, position: Vector3, data: Dictionary) -> void:
@@ -1876,6 +1997,24 @@ func _sync_service_object_save(kind: String, position: Vector3, data: Dictionary
 			saved["expenses"] = int(data.get("expenses", 0))
 			built_objects[i] = saved
 			return
+
+
+func _visitor_profile_summary() -> String:
+	var family_count := 0
+	var thrill_count := 0
+	var budget_count := 0
+	var comfort_count := 0
+	for visitor in visitors:
+		match str(visitor.get("visitor_type", "")):
+			"family":
+				family_count += 1
+			"thrill":
+				thrill_count += 1
+			"budget":
+				budget_count += 1
+			"comfort":
+				comfort_count += 1
+	return "Гости: семьи " + str(family_count) + " • экстрим " + str(thrill_count) + " • экономные " + str(budget_count) + " • комфорт " + str(comfort_count)
 
 
 func _service_queue_summary() -> String:

@@ -53,6 +53,12 @@ PARKORA uses **ThemeParkManager by Supercent** as its primary gameplay reference
 3. Import the folder containing `project.godot`.
 4. Run the main scene.
 
+
+- Simulated park opening hours and a 12-minute in-game day, with morning/evening peaks and quieter periods that change visitor arrival rate
+- Four visitor archetypes (families, thrill-seekers, budget guests, and comfort-oriented guests) with distinct spending limits, queue patience, attraction preferences, and service preferences
+- Average ride-ticket pricing influences park demand; individual guests also compare ticket prices with their personal budgets
+- HUD displays the in-game clock, current demand phase, demand multiplier, and live visitor-type mix
+
 ## Controls
 - Drag: orbit camera
 - Mouse wheel / pinch: zoom
