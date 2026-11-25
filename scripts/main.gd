@@ -24,6 +24,8 @@ var total_visitors := 0
 var total_income := 0
 var total_expenses := 0
 var maintenance_timer := 10.0
+var save_timer := 15.0
+var built_objects: Array[Dictionary] = []
 var park_rating := 50.0
 var economy_label: Label
 
@@ -45,6 +47,7 @@ func _ready() -> void:
 	_create_ground()
 	_create_entrance()
 	_create_starter_decoration()
+	_load_game()
 	_create_camera()
 	_create_ui()
 	_update_hud()
@@ -55,6 +58,10 @@ func _process(delta: float) -> void:
 	_update_visitors(delta)
 	_animate_rides(delta)
 	_update_economy(delta)
+	save_timer -= delta
+	if save_timer <= 0.0:
+		save_timer = 15.0
+		_save_game()
 	spawn_timer -= delta
 	if spawn_timer <= 0.0:
 		spawn_timer = _visitor_spawn_interval()
@@ -329,6 +336,8 @@ func _place_selected(position: Vector3) -> void:
 			_add_box(position + Vector3(0, 0.04, 0), Vector3(2.0, 0.12, 2.0), path_material)
 			_register_path(position)
 	coins -= cost
+	built_objects.append({"type": selected_build, "position": position})
+	_save_game()
 	_update_hud()
 	_set_hint(_build_name(selected_build) + " построено! 🪙 " + str(coins))
 
@@ -387,6 +396,53 @@ func _animate_rides(delta: float) -> void:
 			else:
 				node.rotate_z(delta * 0.22)
 
+
+
+
+func _load_game() -> void:
+	var config := ConfigFile.new()
+	if config.load("user://parkora_save.cfg") != OK:
+		return
+	coins = int(config.get_value("park", "coins", STARTING_COINS))
+	total_visitors = int(config.get_value("park", "total_visitors", 0))
+	total_income = int(config.get_value("park", "total_income", 0))
+	total_expenses = int(config.get_value("park", "total_expenses", 0))
+	park_rating = float(config.get_value("park", "park_rating", 50.0))
+	var saved_objects: Array = config.get_value("park", "built_objects", [])
+	for saved_object in saved_objects:
+		if not saved_object is Dictionary:
+			continue
+		var object_type := str(saved_object.get("type", ""))
+		var object_position: Vector3 = saved_object.get("position", Vector3.ZERO)
+		match object_type:
+			"carousel":
+				_create_carousel(object_position)
+			"ferris":
+				_create_ferris_wheel(object_position)
+			"tree":
+				_create_tree(object_position)
+			"path":
+				_add_box(object_position + Vector3(0, 0.04, 0), Vector3(2.0, 0.12, 2.0), path_material)
+				_register_path(object_position)
+		built_objects.append({"type": object_type, "position": object_position})
+
+
+func _save_game() -> void:
+	var config := ConfigFile.new()
+	config.set_value("park", "coins", coins)
+	config.set_value("park", "total_visitors", total_visitors)
+	config.set_value("park", "total_income", total_income)
+	config.set_value("park", "total_expenses", total_expenses)
+	config.set_value("park", "park_rating", park_rating)
+	config.set_value("park", "built_objects", built_objects)
+	var error := config.save("user://parkora_save.cfg")
+	if error != OK:
+		push_warning("PARKORA: не удалось сохранить прогресс")
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		_save_game()
 
 
 func _update_economy(delta: float) -> void:
