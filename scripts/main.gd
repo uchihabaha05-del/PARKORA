@@ -59,6 +59,10 @@ var mechanics := 0
 var cleanliness := 100.0
 var litter_nodes: Array[Node3D] = []
 var cleaning_timer := 4.0
+var last_saved_unix := 0
+var offline_notice := ""
+var offline_earnings := 0
+var offline_costs := 0
 
 var grass_material: StandardMaterial3D
 var path_material: StandardMaterial3D
@@ -83,7 +87,10 @@ func _ready() -> void:
 	_create_camera()
 	_create_ui()
 	_update_hud()
-	_set_hint("Построй аттракцион, чтобы привлечь посетителей и зарабатывать монеты")
+	if offline_notice != "":
+		_set_hint(offline_notice)
+	else:
+		_set_hint("Построй аттракцион, чтобы привлечь посетителей и зарабатывать монеты")
 
 
 func _process(delta: float) -> void:
@@ -986,6 +993,7 @@ func _load_game() -> void:
 	period_expenses = int(config.get_value("economy", "period_expenses", 0))
 	reporting_timer = float(config.get_value("economy", "reporting_timer", 60.0))
 	objective_index = clampi(int(config.get_value("economy", "objective_index", 0)), 0, 6)
+	last_saved_unix = int(config.get_value("park", "last_saved_unix", 0))
 	land_expansions = clampi(int(config.get_value("park", "land_expansions", 0)), 0, 3)
 	for zone_index in range(land_expansions):
 		_create_land_zone(zone_index)
@@ -1028,10 +1036,88 @@ func _load_game() -> void:
 			restored_ride["served"] = int(saved_object.get("served", 0))
 			rides[rides.size() - 1] = restored_ride
 		built_objects.append(saved_object.duplicate(true))
+	var now_unix := int(Time.get_unix_time_from_system())
+	if last_saved_unix > 0:
+		_apply_offline_progress(now_unix - last_saved_unix)
+	last_saved_unix = now_unix
+
+
+func _apply_offline_progress(raw_elapsed_seconds: int) -> void:
+	var elapsed := clampi(raw_elapsed_seconds, 0, 28800)
+	if elapsed < 60:
+		return
+	var open_ride_indices: Array[int] = []
+	var condition_total := 0.0
+	var ticket_total := 0.0
+	for i in range(rides.size()):
+		var ride: Dictionary = rides[i]
+		var condition := float(ride.get("condition", 100.0))
+		if condition >= 25.0:
+			open_ride_indices.append(i)
+			condition_total += condition
+			ticket_total += float(ride.get("ticket_price", RIDE_TICKET_PRICE))
+	if open_ride_indices.is_empty():
+		offline_notice = "Парк был закрыт: нет исправных аттракционов. Офлайн-дохода нет."
+		return
+	var average_condition := condition_total / float(open_ride_indices.size())
+	var average_ticket := ticket_total / float(open_ride_indices.size())
+	var demand_factor := clampf(0.45 + park_rating / 200.0, 0.45, 0.95)
+	var cleanliness_factor := lerpf(0.25, 1.0, cleanliness / 100.0)
+	var condition_factor := lerpf(0.35, 1.0, average_condition / 100.0)
+	var visitors_per_hour := int(minf(120.0, float(open_ride_indices.size()) * 28.0) * demand_factor * cleanliness_factor * condition_factor)
+	var estimated_visitors := int(float(visitors_per_hour) * float(elapsed) / 3600.0)
+	var admission_gain := estimated_visitors * ENTRY_TICKET_PRICE
+	var ride_gain := int(round(float(estimated_visitors) * average_ticket))
+	var service_customers := int(float(estimated_visitors) * 0.25)
+	var service_gain := service_customers * 13
+	var gross_income := admission_gain + ride_gain + service_gain
+	var staff_per_tick := cleaners * 8 + mechanics * 12
+	var facility_per_tick := shops.size() + facilities.size() * 2
+	var ride_per_tick := 0
+	for ride in rides:
+		ride_per_tick += 2 + int(ride.get("level", 1))
+	var upkeep_per_tick := staff_per_tick + facility_per_tick + ride_per_tick
+	var upkeep_ticks := int(elapsed / 10)
+	var gross_expenses := upkeep_per_tick * upkeep_ticks
+	coins = maxi(0, coins + gross_income - gross_expenses)
+	total_visitors += estimated_visitors
+	total_income += gross_income
+	total_expenses += gross_expenses
+	admission_income += admission_gain
+	ride_income += ride_gain
+	service_income += service_gain
+	staff_expenses += staff_per_tick * upkeep_ticks
+	facility_expenses += facility_per_tick * upkeep_ticks
+	ride_maintenance_expenses += ride_per_tick * upkeep_ticks
+	var guests_per_ride := int(ceil(float(estimated_visitors) / float(open_ride_indices.size())))
+	for ride_index in open_ride_indices:
+		var ride: Dictionary = rides[ride_index]
+		var served := int(round(float(estimated_visitors) / float(open_ride_indices.size())))
+		var ride_price := int(ride.get("ticket_price", RIDE_TICKET_PRICE))
+		ride["served"] = int(ride.get("served", 0)) + served
+		ride["ride_revenue"] = int(ride.get("ride_revenue", 0)) + served * ride_price
+		var wear := float(guests_per_ride) * 1.5
+		var mechanic_repair := float(mechanics) * 2.5 * float(upkeep_ticks)
+		ride["condition"] = clampf(float(ride.get("condition", 100.0)) - wear + mechanic_repair, 0.0, 100.0)
+		rides[ride_index] = ride
+		_sync_ride_save(ride_index)
+	var litter_created := estimated_visitors
+	var litter_cleaned := mini(litter_created, cleaners * upkeep_ticks)
+	cleanliness = clampf(cleanliness + float(litter_cleaned) * 2.5 - float(litter_created - litter_cleaned) * 1.2, 0.0, 100.0)
+	if gross_expenses > coins + gross_income:
+		park_rating = maxf(0.0, park_rating - minf(15.0, float(gross_expenses - (coins + gross_income)) / 500.0))
+	offline_earnings = gross_income
+	offline_costs = gross_expenses
+	var net_result := gross_income - gross_expenses
+	var hours_text := "%.1f" % (float(elapsed) / 3600.0)
+	offline_notice = "Парк работал офлайн " + hours_text + " ч. Доход +" + _format_number(gross_income) + " • расходы −" + _format_number(gross_expenses) + " • итог " + ("+" if net_result >= 0 else "−") + _format_number(absi(net_result)) + " монет"
+	_update_hud()
 
 
 func _save_game() -> void:
 	var config := ConfigFile.new()
+	last_saved_unix = int(Time.get_unix_time_from_system())
+	config.set_value("park", "last_saved_unix", last_saved_unix)
 	config.set_value("park", "coins", coins)
 	config.set_value("park", "total_visitors", total_visitors)
 	config.set_value("park", "total_income", total_income)
