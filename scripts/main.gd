@@ -1088,7 +1088,7 @@ func _apply_offline_progress(raw_elapsed_seconds: int) -> void:
 	staff_expenses += staff_per_tick * upkeep_ticks
 	facility_expenses += facility_per_tick * upkeep_ticks
 	ride_maintenance_expenses += ride_per_tick * upkeep_ticks
-	var guests_per_ride := int(ceil(float(estimated_visitors) / float(open_ride_indices.size())))
+	var guests_per_ride := int(ceil(float(estimated_visitors) / float(open_ride_indices.size()))) if has_open_rides else 0
 	for ride_index in open_ride_indices:
 		var ride: Dictionary = rides[ride_index]
 		var served := int(round(float(estimated_visitors) / float(open_ride_indices.size())))
