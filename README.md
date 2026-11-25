@@ -20,6 +20,9 @@ PARKORA takes inspiration from the accessible idle-tycoon loop of mobile amuseme
 - Animated carousel and Ferris wheel
 - Visitor spawning, physical queue slots, sequential ride service, and exit behavior
 - Attraction queue capacity and load-aware visitor assignment
+- Connected path grid with breadth-first routefinding to rides and back to the gate
+- Ride entrances must connect to the pedestrian path network
+- Guest patience, queue abandonment, and a park rating that affects visitor demand
 - Connected path grid with breadth-first routefinding for visitors
 - Attractions require a nearby connected pedestrian path
 - Coin economy with entrance and ride ticket income
