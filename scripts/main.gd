@@ -10,6 +10,7 @@ var camera: Camera3D
 var cash_label: Label
 var hint_label: Label
 var build_buttons: Dictionary = {}
+var touch_dragged := false
 
 var grass_material: StandardMaterial3D
 var path_material: StandardMaterial3D
@@ -217,6 +218,7 @@ func _build_name(build_type: String) -> String:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventScreenDrag:
+		touch_dragged = true
 		camera_pivot.rotate_y(-event.relative.x * 0.005)
 		camera.position.y = clampf(camera.position.y + event.relative.y * 0.035, 12.0, 38.0)
 	elif event is InputEventMagnifyGesture:
@@ -228,8 +230,11 @@ func _unhandled_input(event: InputEvent) -> void:
 			_zoom_camera(1.12)
 		elif event.button_index == MOUSE_BUTTON_LEFT:
 			_try_place(event.position)
-	elif event is InputEventScreenTouch and not event.pressed:
-		_try_place(event.position)
+	elif event is InputEventScreenTouch:
+		if event.pressed:
+			touch_dragged = false
+		elif not touch_dragged:
+			_try_place(event.position)
 
 
 func _zoom_camera(factor: float) -> void:
