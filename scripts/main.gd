@@ -1812,11 +1812,12 @@ func _sync_service_object_save(kind: String, position: Vector3, data: Dictionary
 
 func _service_object_report() -> String:
 	var top := "нет объектов"
+	var names := {"food": "Киоск еды", "drink": "Киоск напитков", "toilet": "Туалет", "rest": "Зона отдыха"}
 	var revenue := 0
 	for item in shops + facilities:
 		if int(item.get("revenue", 0)) > revenue:
 			revenue = int(item.get("revenue", 0))
-			top = str(item.get("kind", "объект"))
+			top = str(names.get(str(item.get("kind", "")), "Объект"))
 	return "Лидер по выручке: " + top + " • 🪙 " + _format_number(revenue)
 
 
