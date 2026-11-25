@@ -30,6 +30,7 @@ PARKORA uses **ThemeParkManager by Supercent** as its primary gameplay reference
 - Categorized recurring expenses for staff wages, facility upkeep, and ride maintenance
 - Rolling one-minute income, expense, and net-profit report plus lifetime financial totals
 - Persistent local save of the categorized financial ledger
+- Six sequential park objectives with one-time coin rewards and saved progression
 - Food and drink kiosks selected by individual visitors according to hunger/thirst, affordability, reachable path, and walking distance
 - Buildable toilet and rest facilities with distinct visitor needs, service prices, routefinding, usage time, income, and recurring upkeep
 - Visitors track hygiene and rest needs and choose an affordable reachable facility when the need is high
