@@ -35,6 +35,9 @@ The player starts with a small, underdeveloped amusement park and personally tur
 - Each attraction can be upgraded in stages. Upgrades should improve capacity, speed/throughput, appeal, or satisfaction.
 - Attraction condition declines with operation and requires maintenance.
 - Ticket prices are configurable; too expensive reduces demand/satisfaction, too cheap reduces profit.
+- Ticket prices are configurable; a price close to a guest's spending limit reduces perceived value and satisfaction.
+- Ride selection considers estimated waiting time, attraction condition, and guest willingness to pay.
+- The ride panel shows queue occupancy, estimated wait, hourly throughput, and accumulated price-value feedback.
 
 ### 3. Visitors and needs
 - Visitors have individual goals and needs, not just a shared queue state.
