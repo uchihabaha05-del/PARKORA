@@ -1523,11 +1523,26 @@ func _update_visitors(delta: float) -> void:
 			if shop_direction.length() < 0.3:
 				visitor["route_index"] += 1
 				if visitor["route_index"] >= shop_route.size():
-					visitor["state"] = "shopping"
-					visitor["wait"] = 3.0
+					service_sequence += 1
+					visitor["service_order"] = service_sequence
+					visitor["service_wait"] = 0.0
+					visitor["state"] = "waiting_for_shop"
 			else:
 				person.position += shop_direction.normalized() * delta * 2.2
 				person.look_at(Vector3(shop_waypoint.x, person.position.y, shop_waypoint.z), Vector3.UP)
+		elif visitor["state"] == "waiting_for_shop":
+			visitor["service_wait"] = float(visitor.get("service_wait", 0.0)) + delta
+			var shop_index: int = int(visitor.get("shop_index", -1))
+			if float(visitor["service_wait"]) > 8.0:
+				visitor["satisfaction"] = maxf(0.0, float(visitor.get("satisfaction", 80.0)) - delta * 0.12)
+			if float(visitor["service_wait"]) >= 45.0:
+				visitor["satisfaction"] = maxf(0.0, float(visitor.get("satisfaction", 80.0)) - 8.0)
+				_send_visitor_to_exit(visitor, person)
+				_set_hint("Посетитель ушёл из очереди в киоск")
+			elif shop_index >= 0 and shop_index < shops.size() and _service_queue_can_start(str(shops[shop_index]["kind"]), shop_index, int(visitor.get("service_order", 0))):
+				visitor["state"] = "shopping"
+				visitor["wait"] = 3.0
+				_set_hint("Посетитель начал обслуживание в киоске")
 		elif visitor["state"] == "shopping":
 			visitor["wait"] -= delta
 			if visitor["wait"] <= 0.0:
@@ -1563,11 +1578,26 @@ func _update_visitors(delta: float) -> void:
 			if facility_direction.length() < 0.3:
 				visitor["route_index"] += 1
 				if visitor["route_index"] >= facility_route.size():
-					visitor["state"] = "using_facility"
-					visitor["wait"] = 4.0
+					service_sequence += 1
+					visitor["service_order"] = service_sequence
+					visitor["service_wait"] = 0.0
+					visitor["state"] = "waiting_for_facility"
 			else:
 				person.position += facility_direction.normalized() * delta * 2.2
 				person.look_at(Vector3(facility_waypoint.x, person.position.y, facility_waypoint.z), Vector3.UP)
+		elif visitor["state"] == "waiting_for_facility":
+			visitor["service_wait"] = float(visitor.get("service_wait", 0.0)) + delta
+			var facility_index: int = int(visitor.get("facility_index", -1))
+			if float(visitor["service_wait"]) > 8.0:
+				visitor["satisfaction"] = maxf(0.0, float(visitor.get("satisfaction", 80.0)) - delta * 0.12)
+			if float(visitor["service_wait"]) >= 45.0:
+				visitor["satisfaction"] = maxf(0.0, float(visitor.get("satisfaction", 80.0)) - 8.0)
+				_send_visitor_to_exit(visitor, person)
+				_set_hint("Посетитель ушёл из очереди в объект обслуживания")
+			elif facility_index >= 0 and facility_index < facilities.size() and _service_queue_can_start(str(facilities[facility_index]["kind"]), facility_index, int(visitor.get("service_order", 0))):
+				visitor["state"] = "using_facility"
+				visitor["wait"] = 4.0
+				_set_hint("Посетитель начал пользоваться объектом")
 		elif visitor["state"] == "using_facility":
 			visitor["wait"] -= delta
 			if visitor["wait"] <= 0.0:
