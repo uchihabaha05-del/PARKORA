@@ -1,16 +1,26 @@
 extends Node3D
 
-const STARTING_CASH := 5000
-const COSTS := {"carousel": 1200, "tree": 100, "path": 25}
+const STARTING_COINS := 5000
+const BUILD_COSTS := {"carousel": 1200, "ferris": 2400, "tree": 100, "path": 25}
+const RIDE_TICKET_PRICE := 35
+const ENTRY_TICKET_PRICE := 10
+const MAX_VISITORS := 14
+const VISITOR_SPAWN_SECONDS := 3.5
 
-var cash := STARTING_CASH
+var coins := STARTING_COINS
 var selected_build := ""
 var camera_pivot: Node3D
 var camera: Camera3D
-var cash_label: Label
+var coins_label: Label
+var visitors_label: Label
 var hint_label: Label
 var build_buttons: Dictionary = {}
 var touch_dragged := false
+var visitors: Array[Dictionary] = []
+var rides: Array[Dictionary] = []
+var spawn_timer := 1.0
+var total_visitors := 0
+var total_income := 0
 
 var grass_material: StandardMaterial3D
 var path_material: StandardMaterial3D
@@ -20,6 +30,8 @@ var red_material: StandardMaterial3D
 var yellow_material: StandardMaterial3D
 var blue_material: StandardMaterial3D
 var cream_material: StandardMaterial3D
+var skin_material: StandardMaterial3D
+var shirt_materials: Array[StandardMaterial3D] = []
 
 
 func _ready() -> void:
@@ -30,8 +42,17 @@ func _ready() -> void:
 	_create_starter_decoration()
 	_create_camera()
 	_create_ui()
-	_update_cash()
-	_set_hint("Выбери объект внизу, затем коснись земли, чтобы построить")
+	_update_hud()
+	_set_hint("Построй аттракцион, чтобы привлечь посетителей и зарабатывать монеты")
+
+
+func _process(delta: float) -> void:
+	_update_visitors(delta)
+	_animate_rides(delta)
+	spawn_timer -= delta
+	if spawn_timer <= 0.0:
+		spawn_timer = VISITOR_SPAWN_SECONDS
+		_spawn_visitor()
 
 
 func _create_materials() -> void:
@@ -43,6 +64,14 @@ func _create_materials() -> void:
 	yellow_material = _material(Color("#ffd45c"))
 	blue_material = _material(Color("#59b9e8"))
 	cream_material = _material(Color("#fff0cf"))
+	skin_material = _material(Color("#f2bd91"))
+	shirt_materials = [
+		_material(Color("#f06b68")),
+		_material(Color("#5a9fe8")),
+		_material(Color("#f2c94c")),
+		_material(Color("#a77be8")),
+		_material(Color("#54b99a"))
+	]
 
 
 func _material(color: Color) -> StandardMaterial3D:
@@ -86,7 +115,6 @@ func _create_ground() -> void:
 	ground.position.y = -0.12
 	add_child(ground)
 
-	# A simple entrance plaza gives the empty park a clear starting point.
 	for x in range(-2, 3):
 		for z in range(5, 9):
 			_add_box(Vector3(float(x) * 2.0, 0.015, float(z) * 2.0), Vector3(1.95, 0.08, 1.95), path_material)
@@ -97,6 +125,7 @@ func _create_entrance() -> void:
 	_add_box(Vector3(-5.5, 1.1, 17.0), Vector3(0.65, 2.2, 0.65), cream_material)
 	_add_box(Vector3(5.5, 1.1, 17.0), Vector3(0.65, 2.2, 0.65), cream_material)
 	_add_box(Vector3(0, 2.65, 17.0), Vector3(3.8, 0.55, 0.7), yellow_material)
+	_add_box(Vector3(0, 0.12, 11.0), Vector3(3.0, 0.18, 12.0), path_material)
 
 
 func _create_starter_decoration() -> void:
@@ -111,12 +140,10 @@ func _create_starter_decoration() -> void:
 
 func _create_camera() -> void:
 	camera_pivot = Node3D.new()
-	camera_pivot.position = Vector3.ZERO
 	add_child(camera_pivot)
-
 	camera = Camera3D.new()
 	camera.position = Vector3(0.0, 23.0, 31.0)
-	camera.look_at(Vector3(0.0, 0.0, 0.0), Vector3.UP)
+	camera.look_at(Vector3.ZERO, Vector3.UP)
 	camera.fov = 52.0
 	camera.current = true
 	camera_pivot.add_child(camera)
@@ -125,25 +152,30 @@ func _create_camera() -> void:
 func _create_ui() -> void:
 	var layer := CanvasLayer.new()
 	add_child(layer)
-
 	var root := Control.new()
 	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	root.mouse_filter = Control.MOUSE_FILTER_PASS
 	layer.add_child(root)
 
-	cash_label = Label.new()
-	cash_label.position = Vector2(24, 20)
-	cash_label.add_theme_font_size_override("font_size", 30)
-	cash_label.add_theme_color_override("font_color", Color("#ffffff"))
-	cash_label.add_theme_color_override("font_shadow_color", Color("#263c35"))
-	cash_label.add_theme_constant_override("shadow_offset_x", 2)
-	cash_label.add_theme_constant_override("shadow_offset_y", 2)
-	root.add_child(cash_label)
+	coins_label = Label.new()
+	coins_label.position = Vector2(24, 18)
+	coins_label.add_theme_font_size_override("font_size", 30)
+	coins_label.add_theme_color_override("font_color", Color.WHITE)
+	coins_label.add_theme_color_override("font_shadow_color", Color("#263c35"))
+	coins_label.add_theme_constant_override("shadow_offset_x", 2)
+	coins_label.add_theme_constant_override("shadow_offset_y", 2)
+	root.add_child(coins_label)
+
+	visitors_label = Label.new()
+	visitors_label.position = Vector2(24, 58)
+	visitors_label.add_theme_font_size_override("font_size", 19)
+	visitors_label.add_theme_color_override("font_color", Color.WHITE)
+	root.add_child(visitors_label)
 
 	hint_label = Label.new()
-	hint_label.position = Vector2(24, 62)
-	hint_label.add_theme_font_size_override("font_size", 17)
-	hint_label.add_theme_color_override("font_color", Color("#ffffff"))
+	hint_label.position = Vector2(24, 88)
+	hint_label.add_theme_font_size_override("font_size", 16)
+	hint_label.add_theme_color_override("font_color", Color.WHITE)
 	root.add_child(hint_label)
 
 	var panel := PanelContainer.new()
@@ -151,12 +183,12 @@ func _create_ui() -> void:
 	panel.anchor_right = 0.5
 	panel.anchor_top = 1.0
 	panel.anchor_bottom = 1.0
-	panel.offset_left = -310
-	panel.offset_right = 310
-	panel.offset_top = -104
-	panel.offset_bottom = -18
+	panel.offset_left = -365
+	panel.offset_right = 365
+	panel.offset_top = -108
+	panel.offset_bottom = -14
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.08, 0.16, 0.19, 0.88)
+	style.bg_color = Color(0.08, 0.16, 0.19, 0.9)
 	style.corner_radius_top_left = 18
 	style.corner_radius_top_right = 18
 	style.corner_radius_bottom_left = 18
@@ -166,20 +198,20 @@ func _create_ui() -> void:
 
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 10)
+	row.add_theme_constant_override("separation", 8)
 	panel.add_child(row)
-
-	_add_build_button(row, "Карусель\n$1200", "carousel")
-	_add_build_button(row, "Дерево\n$100", "tree")
-	_add_build_button(row, "Дорожка\n$25", "path")
+	_add_build_button(row, "Карусель\n🪙 1 200", "carousel")
+	_add_build_button(row, "Колесо\n🪙 2 400", "ferris")
+	_add_build_button(row, "Дерево\n🪙 100", "tree")
+	_add_build_button(row, "Дорожка\n🪙 25", "path")
 	_add_clear_button(row)
 
 
 func _add_build_button(parent: HBoxContainer, caption: String, build_type: String) -> void:
 	var button := Button.new()
 	button.text = caption
-	button.custom_minimum_size = Vector2(132, 68)
-	button.add_theme_font_size_override("font_size", 18)
+	button.custom_minimum_size = Vector2(132, 72)
+	button.add_theme_font_size_override("font_size", 17)
 	button.pressed.connect(_select_build.bind(build_type))
 	parent.add_child(button)
 	build_buttons[build_type] = button
@@ -188,8 +220,8 @@ func _add_build_button(parent: HBoxContainer, caption: String, build_type: Strin
 func _add_clear_button(parent: HBoxContainer) -> void:
 	var button := Button.new()
 	button.text = "Отмена"
-	button.custom_minimum_size = Vector2(100, 68)
-	button.add_theme_font_size_override("font_size", 17)
+	button.custom_minimum_size = Vector2(90, 72)
+	button.add_theme_font_size_override("font_size", 16)
 	button.pressed.connect(_select_build.bind(""))
 	parent.add_child(button)
 
@@ -197,9 +229,9 @@ func _add_clear_button(parent: HBoxContainer) -> void:
 func _select_build(build_type: String) -> void:
 	selected_build = build_type
 	if selected_build == "":
-		_set_hint("Режим строительства выключен. Перетаскивай экран для вращения камеры")
+		_set_hint("Строительство выключено. Перетаскивай экран для вращения камеры")
 	else:
-		_set_hint("Строительство: " + _build_name(build_type) + ". Коснись свободного места")
+		_set_hint("Выбрано: " + _build_name(build_type) + ". Коснись свободного места")
 	for key in build_buttons:
 		var button: Button = build_buttons[key]
 		button.modulate = Color("#ffe28a") if key == selected_build else Color.WHITE
@@ -209,6 +241,8 @@ func _build_name(build_type: String) -> String:
 	match build_type:
 		"carousel":
 			return "Карусель"
+		"ferris":
+			return "Колесо обозрения"
 		"tree":
 			return "Дерево"
 		"path":
@@ -260,20 +294,22 @@ func _try_place(screen_position: Vector2) -> void:
 
 
 func _place_selected(position: Vector3) -> void:
-	var cost: int = COSTS.get(selected_build, 0)
-	if cash < cost:
-		_set_hint("Недостаточно денег для строительства")
+	var cost: int = BUILD_COSTS.get(selected_build, 0)
+	if coins < cost:
+		_set_hint("Не хватает монет для строительства")
 		return
 	match selected_build:
 		"carousel":
 			_create_carousel(position)
+		"ferris":
+			_create_ferris_wheel(position)
 		"tree":
 			_create_tree(position)
 		"path":
 			_add_box(position + Vector3(0, 0.04, 0), Vector3(2.0, 0.12, 2.0), path_material)
-	cash -= cost
-	_update_cash()
-	_set_hint(_build_name(selected_build) + " построено! Остаток: $" + str(cash))
+	coins -= cost
+	_update_hud()
+	_set_hint(_build_name(selected_build) + " построено! 🪙 " + str(coins))
 
 
 func _create_tree(position: Vector3) -> void:
@@ -283,15 +319,122 @@ func _create_tree(position: Vector3) -> void:
 
 
 func _create_carousel(position: Vector3) -> void:
-	_add_cylinder(position + Vector3(0, 0.25, 0), 3.4, 0.5, cream_material)
-	_add_cylinder(position + Vector3(0, 2.0, 0), 0.22, 3.2, red_material)
-	_add_cylinder(position + Vector3(0, 3.65, 0), 3.0, 0.35, yellow_material)
+	var ride := Node3D.new()
+	ride.position = position
+	add_child(ride)
+	_add_cylinder_local(ride, Vector3(0, 0.25, 0), 3.4, 0.5, cream_material)
+	_add_cylinder_local(ride, Vector3(0, 2.0, 0), 0.22, 3.2, red_material)
+	_add_cylinder_local(ride, Vector3(0, 3.65, 0), 3.0, 0.35, yellow_material)
+	var spinning := Node3D.new()
+	spinning.position.y = 2.0
+	ride.add_child(spinning)
 	for i in range(8):
 		var angle := TAU * float(i) / 8.0
-		var seat_position := position + Vector3(cos(angle) * 2.25, 1.45, sin(angle) * 2.25)
+		var seat_position := Vector3(cos(angle) * 2.25, -0.55, sin(angle) * 2.25)
 		var seat_color: StandardMaterial3D = red_material if i % 2 == 0 else blue_material
-		_add_box(seat_position, Vector3(0.8, 0.8, 0.8), seat_color)
-		_add_cylinder(position + Vector3(cos(angle) * 2.25, 2.45, sin(angle) * 2.25), 0.07, 2.0, cream_material)
+		_add_box_local(spinning, seat_position, Vector3(0.8, 0.8, 0.8), seat_color)
+		_add_cylinder_local(spinning, Vector3(cos(angle) * 2.25, 0.45, sin(angle) * 2.25), 0.07, 2.0, cream_material)
+	rides.append({"kind": "carousel", "position": position, "node": spinning, "timer": 0.0})
+
+
+func _create_ferris_wheel(position: Vector3) -> void:
+	var ride := Node3D.new()
+	ride.position = position
+	add_child(ride)
+	_add_box_local(ride, Vector3(-2.3, 2.1, 0), Vector3(0.35, 4.2, 0.45), blue_material)
+	_add_box_local(ride, Vector3(2.3, 2.1, 0), Vector3(0.35, 4.2, 0.45), blue_material)
+	var wheel := Node3D.new()
+	wheel.position = Vector3(0, 4.1, 0)
+	ride.add_child(wheel)
+	_add_torus_local(wheel, Vector3.ZERO, 3.0, 0.16, yellow_material)
+	_add_cylinder_local(wheel, Vector3.ZERO, 0.35, 0.45, red_material)
+	for i in range(8):
+		var angle := TAU * float(i) / 8.0
+		var spoke := _add_box_local(wheel, Vector3(cos(angle) * 1.5, sin(angle) * 1.5, 0), Vector3(3.0, 0.09, 0.12), cream_material)
+		spoke.rotation.z = angle
+		var gondola := _add_box_local(wheel, Vector3(cos(angle) * 3.0, sin(angle) * 3.0, 0), Vector3(0.65, 0.55, 0.55), red_material if i % 2 == 0 else blue_material)
+		gondola.rotation.z = angle
+	rides.append({"kind": "ferris", "position": position, "node": wheel, "timer": 0.0})
+
+
+func _animate_rides(delta: float) -> void:
+	for ride in rides:
+		var node: Node3D = ride["node"]
+		if is_instance_valid(node):
+			if ride["kind"] == "carousel":
+				node.rotate_y(delta * 0.75)
+			else:
+				node.rotate_z(delta * 0.22)
+
+
+func _spawn_visitor() -> void:
+	if visitors.size() >= MAX_VISITORS or rides.is_empty():
+		return
+	var target_index := _find_nearest_ride(Vector3(0, 0, 11))
+	if target_index < 0:
+		return
+	var person := Node3D.new()
+	person.position = Vector3(randf_range(-0.7, 0.7), 0, 13.0)
+	add_child(person)
+	var shirt: StandardMaterial3D = shirt_materials[randi() % shirt_materials.size()]
+	_add_capsule_local(person, Vector3(0, 0.85, 0), 0.28, 1.1, shirt)
+	_add_sphere_local(person, Vector3(0, 1.65, 0), 0.25, skin_material)
+	var target: Vector3 = rides[target_index]["position"] + Vector3(randf_range(-1.0, 1.0), 0, 3.5)
+	visitors.append({"node": person, "target": target, "state": "walking", "wait": 0.0, "ride_index": target_index})
+	coins += ENTRY_TICKET_PRICE
+	total_visitors += 1
+	total_income += ENTRY_TICKET_PRICE
+	_update_hud()
+
+
+func _find_nearest_ride(from_position: Vector3) -> int:
+	var best_index := -1
+	var best_distance := INF
+	for i in range(rides.size()):
+		var ride_position: Vector3 = rides[i]["position"]
+		var distance := from_position.distance_to(ride_position)
+		if distance < best_distance:
+			best_distance = distance
+			best_index = i
+	return best_index
+
+
+func _update_visitors(delta: float) -> void:
+	for i in range(visitors.size() - 1, -1, -1):
+		var visitor: Dictionary = visitors[i]
+		var person: Node3D = visitor["node"]
+		if not is_instance_valid(person):
+			visitors.remove_at(i)
+			continue
+		if visitor["state"] == "walking":
+			var target: Vector3 = visitor["target"]
+			var direction := target - person.position
+			direction.y = 0.0
+			if direction.length() < 0.55:
+				visitor["state"] = "riding"
+				visitor["wait"] = 4.0
+			else:
+				person.position += direction.normalized() * delta * 2.2
+				person.look_at(Vector3(target.x, person.position.y, target.z), Vector3.UP)
+		elif visitor["state"] == "riding":
+			visitor["wait"] -= delta
+			if visitor["wait"] <= 0.0:
+				coins += RIDE_TICKET_PRICE
+				total_income += RIDE_TICKET_PRICE
+				visitor["state"] = "leaving"
+				visitor["target"] = Vector3(randf_range(-1.0, 1.0), 0, 16.0)
+				_update_hud()
+				_set_hint("Посетитель прокатился! +🪙 " + str(RIDE_TICKET_PRICE))
+		elif visitor["state"] == "leaving":
+			var exit_target: Vector3 = visitor["target"]
+			var exit_direction := exit_target - person.position
+			exit_direction.y = 0.0
+			if exit_direction.length() < 0.8:
+				person.queue_free()
+				visitors.remove_at(i)
+			else:
+				person.position += exit_direction.normalized() * delta * 2.4
+				person.look_at(Vector3(exit_target.x, person.position.y, exit_target.z), Vector3.UP)
 
 
 func _add_box(position: Vector3, size: Vector3, material: Material) -> MeshInstance3D:
@@ -305,21 +448,40 @@ func _add_box(position: Vector3, size: Vector3, material: Material) -> MeshInsta
 	return instance
 
 
-func _add_cylinder(position: Vector3, radius: float, height: float, material: Material) -> MeshInstance3D:
+func _add_box_local(parent: Node3D, position: Vector3, size: Vector3, material: Material) -> MeshInstance3D:
+	var instance := MeshInstance3D.new()
+	var mesh := BoxMesh.new()
+	mesh.size = size
+	instance.mesh = mesh
+	instance.material_override = material
+	instance.position = position
+	parent.add_child(instance)
+	return instance
+
+
+func _add_cylinder_local(parent: Node3D, position: Vector3, radius: float, height: float, material: Material) -> MeshInstance3D:
 	var instance := MeshInstance3D.new()
 	var mesh := CylinderMesh.new()
 	mesh.top_radius = radius
 	mesh.bottom_radius = radius
 	mesh.height = height
-	mesh.radial_segments = 20
+	mesh.radial_segments = 24
 	instance.mesh = mesh
 	instance.material_override = material
 	instance.position = position
-	add_child(instance)
+	parent.add_child(instance)
 	return instance
 
 
+func _add_cylinder(position: Vector3, radius: float, height: float, material: Material) -> MeshInstance3D:
+	return _add_cylinder_local(self, position, radius, height, material)
+
+
 func _add_sphere(position: Vector3, radius: float, material: Material) -> MeshInstance3D:
+	return _add_sphere_local(self, position, radius, material)
+
+
+func _add_sphere_local(parent: Node3D, position: Vector3, radius: float, material: Material) -> MeshInstance3D:
 	var instance := MeshInstance3D.new()
 	var mesh := SphereMesh.new()
 	mesh.radius = radius
@@ -329,13 +491,50 @@ func _add_sphere(position: Vector3, radius: float, material: Material) -> MeshIn
 	instance.mesh = mesh
 	instance.material_override = material
 	instance.position = position
-	add_child(instance)
+	parent.add_child(instance)
 	return instance
 
 
-func _update_cash() -> void:
-	if cash_label != null:
-		cash_label.text = "PARKORA   $" + str(cash)
+func _add_capsule_local(parent: Node3D, position: Vector3, radius: float, height: float, material: Material) -> MeshInstance3D:
+	var instance := MeshInstance3D.new()
+	var mesh := CapsuleMesh.new()
+	mesh.radius = radius
+	mesh.height = height
+	instance.mesh = mesh
+	instance.material_override = material
+	instance.position = position
+	parent.add_child(instance)
+	return instance
+
+
+func _add_torus_local(parent: Node3D, position: Vector3, radius: float, tube_radius: float, material: Material) -> MeshInstance3D:
+	var instance := MeshInstance3D.new()
+	var mesh := TorusMesh.new()
+	mesh.inner_radius = radius - tube_radius
+	mesh.outer_radius = radius + tube_radius
+	instance.mesh = mesh
+	instance.material_override = material
+	instance.position = position
+	parent.add_child(instance)
+	return instance
+
+
+func _update_hud() -> void:
+	if coins_label != null:
+		coins_label.text = "PARKORA   🪙 " + _format_number(coins)
+	if visitors_label != null:
+		visitors_label.text = "👥 " + str(visitors.size()) + " / " + str(MAX_VISITORS) + "    Всего гостей: " + str(total_visitors)
+
+
+func _format_number(value: int) -> String:
+	var raw := str(value)
+	var output := ""
+	for i in range(raw.length()):
+		output += raw[i]
+		var remaining := raw.length() - i - 1
+		if remaining > 0 and remaining % 3 == 0:
+			output += " "
+	return output
 
 
 func _set_hint(message: String) -> void:
