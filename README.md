@@ -27,7 +27,8 @@ PARKORA uses **ThemeParkManager by Supercent** as its primary gameplay reference
 - Attractions require a nearby connected pedestrian path
 - Coin economy with entrance and ride ticket income
 - Recurring attraction and kiosk maintenance costs, cash-flow tracking, and lifetime revenue/expense/net-profit HUD
-- Buildable food and drink kiosks with visitor-driven sales and service satisfaction bonuses
+- Food and drink kiosks selected by individual visitors according to hunger/thirst, reachable path, and walking distance
+- Visitors physically walk to a selected kiosk, purchase once, satisfy the corresponding need, and then leave
 - Automatic local save/restore of park funds, visitor totals, rating, finances, and player-built objects
 - Basic attraction unlock progression
 - Russian mobile HUD
@@ -43,4 +44,4 @@ PARKORA uses **ThemeParkManager by Supercent** as its primary gameplay reference
 - Mouse wheel / pinch: zoom
 - Select a construction item, then tap/click the ground to place it
 
-The project is an early playable foundation. Park progress is saved locally in `user://parkora_save.cfg` and restored when the game starts. Android export and APK packaging are intentionally deferred. The current visitor AI and economy are scaffolding. The next development stages will replace automatic kiosk income with individual visitor needs and decisions, then add attraction pricing/upgrades, staff, toilets/rest areas, land expansion, and balanced offline earnings.
+The project is an early playable foundation. Park progress is saved locally in `user://parkora_save.cfg` and restored when the game starts. Android export and APK packaging are intentionally deferred. The current visitor AI and economy are scaffolding. The next development stages will expand individual visitor needs and decisions, then add attraction pricing/upgrades, staff, toilets/rest areas, land expansion, and balanced offline earnings.
