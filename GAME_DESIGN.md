@@ -57,7 +57,7 @@ The player starts with a small, underdeveloped amusement park and personally tur
 
 ### 6. Progression and goals
 - Unlock rides, services, land, and upgrades through clear milestones.
-- Introduce objectives that teach the next management system (e.g. serve a visitor need, reach a satisfaction target, earn a profit target).
+- Introduce sequential objectives that teach park management (welcome visitors, build attractions and services, earn revenue, hire staff, and improve rating/cleanliness), with one-time coin rewards and saved progress.
 - Park rating and visitor demand should react to actual service quality, not only elapsed visitor counts.
 
 ## Development priorities
@@ -72,4 +72,4 @@ The player starts with a small, underdeveloped amusement park and personally tur
 
 ## Current implementation status
 
-PARKORA is still a prototype. It currently has a procedural park, path-based routefinding, two rides, visitor queues, configurable ride prices and upgrades, attraction condition and repair, food/drink kiosks, individual hunger/thirst needs, buildable toilets and rest areas, individual hygiene/rest needs, visitor-paid facility use, cleaner and mechanic hiring, litter and cleanliness simulation, recurring staff wages and facility upkeep, automatic mechanic maintenance, categorized lifetime income and operating expenses, a rolling one-minute profit report, and local save/restore of built objects and park finances. These systems are scaffolding, not the final management simulation. Runtime validation in Godot is still required.
+PARKORA is still a prototype. It currently has a procedural park, path-based routefinding, two rides, visitor queues, configurable ride prices and upgrades, attraction condition and repair, food/drink kiosks, individual hunger/thirst needs, buildable toilets and rest areas, individual hygiene/rest needs, visitor-paid facility use, cleaner and mechanic hiring, litter and cleanliness simulation, recurring staff wages and facility upkeep, automatic mechanic maintenance, categorized lifetime income and operating expenses, a rolling one-minute profit report, six sequential rewarded park objectives with saved progress, and local save/restore of built objects and park finances. These systems are scaffolding, not the final management simulation. Runtime validation in Godot is still required.
