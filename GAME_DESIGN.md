@@ -63,11 +63,11 @@ The player starts with a small, underdeveloped amusement park and personally tur
 1. Make the current prototype's economy and visitor simulation consistent with the above loop.
 2. Replace automatic shop sales with individual visitor decisions and service interactions.
 3. Add configurable attraction prices and upgrade levels.
-4. Add visitor needs, toilets/rest areas, and satisfaction feedback.
+4. Expand visitor needs, toilets/rest areas, and satisfaction feedback.
 5. Add staff, wages, and maintenance tasks.
 6. Add land expansion, unlock milestones, and balanced offline earnings.
 7. Improve visuals, animations, sound, and mobile UI after the management loop is reliable.
 
 ## Current implementation status
 
-PARKORA is still a prototype. It currently has a procedural park, paths and basic routefinding, two rides, visitors and queues, basic kiosk income, maintenance costs, and local save/restore. These systems are scaffolding, not the final management simulation. Runtime validation in Godot is still required.
+PARKORA is still a prototype. It currently has a procedural park, path-based routefinding, two rides, visitor queues, configurable ride prices and upgrades, attraction condition and repair, food/drink kiosks, individual hunger/thirst needs, buildable toilets and rest areas, individual hygiene/rest needs, visitor-paid facility use, cleaner hiring, litter and cleanliness simulation, recurring upkeep, and local save/restore of built objects and park finances. These systems are scaffolding, not the final management simulation. Runtime validation in Godot is still required.
