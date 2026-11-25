@@ -26,7 +26,10 @@ PARKORA uses **ThemeParkManager by Supercent** as its primary gameplay reference
 - Connected path grid with breadth-first routefinding for visitors
 - Attractions require a nearby connected pedestrian path
 - Coin economy with entrance and ride ticket income
-- Recurring attraction and kiosk maintenance costs, cash-flow tracking, and lifetime revenue/expense/net-profit HUD
+- Categorized lifetime income from admission, rides, and services
+- Categorized recurring expenses for staff wages, facility upkeep, and ride maintenance
+- Rolling one-minute income, expense, and net-profit report plus lifetime financial totals
+- Persistent local save of the categorized financial ledger
 - Food and drink kiosks selected by individual visitors according to hunger/thirst, affordability, reachable path, and walking distance
 - Buildable toilet and rest facilities with distinct visitor needs, service prices, routefinding, usage time, income, and recurring upkeep
 - Visitors track hygiene and rest needs and choose an affordable reachable facility when the need is high
@@ -46,4 +49,4 @@ PARKORA uses **ThemeParkManager by Supercent** as its primary gameplay reference
 - Mouse wheel / pinch: zoom
 - Select a construction item, then tap/click the ground to place it
 
-The project is an early playable foundation. Park progress is saved locally in `user://parkora_save.cfg` and restored when the game starts. Android export and APK packaging are intentionally deferred. The current visitor AI and economy are scaffolding. The next development stages will expand individual visitor needs and decisions, then deepen staff and maintenance roles, add land expansion, and implement balanced offline earnings.
+The project is an early playable foundation. Park progress is saved locally in `user://parkora_save.cfg` and restored when the game starts. Android export and APK packaging are intentionally deferred. The current visitor AI and economy are scaffolding. The next development stages will add management objectives, land expansion, and balanced offline earnings.
