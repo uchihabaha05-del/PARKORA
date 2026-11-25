@@ -1,9 +1,9 @@
 # PARKORA
 
-A mobile 3D amusement park tycoon built with Godot 4.3 and GDScript.
+A mobile 3D amusement park management tycoon built with Godot 4.3 and GDScript.
 
 ## Gameplay direction
-PARKORA takes inspiration from the accessible idle-tycoon loop of mobile amusement-park management games, while using original code, procedural placeholder art, and its own progression.
+PARKORA uses **ThemeParkManager by Supercent** as its primary gameplay reference: build and expand a park, manage visitor needs and queues, tune prices, upgrade attractions, hire staff, maintain facilities, and grow long-term profit. PARKORA uses its own code, visuals, interface, names, and progression. See [GAME_DESIGN.md](GAME_DESIGN.md) for the gameplay specification.
 
 - Start with a small park and a coin budget.
 - Build attractions and decorations on the land.
@@ -43,4 +43,4 @@ PARKORA takes inspiration from the accessible idle-tycoon loop of mobile amuseme
 - Mouse wheel / pinch: zoom
 - Select a construction item, then tap/click the ground to place it
 
-The project is an early playable foundation. Park progress is saved locally in `user://parkora_save.cfg` and restored when the game starts. Android export and APK packaging are intentionally deferred. The current visitor AI is a lightweight prototype and will be expanded with more advanced pathfinding and crowd flow, staff, visitor needs, and deeper park-management systems.
+The project is an early playable foundation. Park progress is saved locally in `user://parkora_save.cfg` and restored when the game starts. Android export and APK packaging are intentionally deferred. The current visitor AI and economy are scaffolding. The next development stages will replace automatic kiosk income with individual visitor needs and decisions, then add attraction pricing/upgrades, staff, toilets/rest areas, land expansion, and balanced offline earnings.
