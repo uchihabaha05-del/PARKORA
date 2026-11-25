@@ -22,6 +22,7 @@ var path_cells: Dictionary = {}
 var spawn_timer := 1.0
 var total_visitors := 0
 var total_income := 0
+var park_rating := 50.0
 
 var grass_material: StandardMaterial3D
 var path_material: StandardMaterial3D
@@ -52,7 +53,7 @@ func _process(delta: float) -> void:
 	_animate_rides(delta)
 	spawn_timer -= delta
 	if spawn_timer <= 0.0:
-		spawn_timer = VISITOR_SPAWN_SECONDS
+		spawn_timer = _visitor_spawn_interval()
 		_spawn_visitor()
 
 
@@ -377,6 +378,10 @@ func _animate_rides(delta: float) -> void:
 				node.rotate_z(delta * 0.22)
 
 
+func _visitor_spawn_interval() -> float:
+	return lerpf(6.0, 2.5, park_rating / 100.0)
+
+
 func _spawn_visitor() -> void:
 	if visitors.size() >= MAX_VISITORS or rides.is_empty():
 		return
@@ -399,7 +404,7 @@ func _spawn_visitor() -> void:
 		rides[target_index]["queue"] = queue
 		person.queue_free()
 		return
-	visitors.append({"node": person, "person_id": person.get_instance_id(), "target": target, "route": route, "route_index": 0, "route_queue_index": queue.size() - 1, "state": "walking", "wait": 0.0, "ride_index": target_index})
+	visitors.append({"node": person, "person_id": person.get_instance_id(), "target": target, "route": route, "route_index": 0, "route_queue_index": queue.size() - 1, "patience": 45.0, "state": "walking", "wait": 0.0, "ride_index": target_index})
 	coins += ENTRY_TICKET_PRICE
 	total_visitors += 1
 	total_income += ENTRY_TICKET_PRICE
@@ -538,6 +543,17 @@ func _update_visitors(delta: float) -> void:
 		elif visitor["state"] == "queued":
 			if queue_index < 0:
 				continue
+			visitor["patience"] -= delta
+			if visitor["patience"] <= 0.0:
+				_remove_visitor_from_queue(ride_index, person_id)
+				visitor["state"] = "leaving"
+				visitor["target"] = Vector3(0, 0, 16.0)
+				visitor["route"] = _find_path(person.position, visitor["target"])
+				visitor["route_index"] = 0
+				park_rating = maxf(0.0, park_rating - 4.0)
+				_update_hud()
+				_set_hint("Посетитель не дождался очереди. Рейтинг парка снизился")
+				continue
 			var target := _queue_position(ride_index, queue_index)
 			var direction: Vector3 = target - person.position
 			direction.y = 0.0
@@ -557,6 +573,7 @@ func _update_visitors(delta: float) -> void:
 				rides[ride_index]["busy"] = false
 				coins += RIDE_TICKET_PRICE
 				total_income += RIDE_TICKET_PRICE
+				park_rating = minf(100.0, park_rating + 1.5)
 				visitor["state"] = "leaving"
 				visitor["target"] = Vector3(0, 0, 16.0)
 				visitor["route"] = _find_path(person.position, visitor["target"])
@@ -674,7 +691,7 @@ func _update_hud() -> void:
 	if coins_label != null:
 		coins_label.text = "PARKORA   🪙 " + _format_number(coins)
 	if visitors_label != null:
-		visitors_label.text = "👥 " + str(visitors.size()) + " / " + str(MAX_VISITORS) + "    Всего гостей: " + str(total_visitors) + "    В очередях: " + str(_total_queued_visitors())
+		visitors_label.text = "👥 " + str(visitors.size()) + " / " + str(MAX_VISITORS) + "    Всего: " + str(total_visitors) + "    ⭐ " + str(roundi(park_rating)) + "    В очередях: " + str(_total_queued_visitors())
 
 
 func _total_queued_visitors() -> int:
