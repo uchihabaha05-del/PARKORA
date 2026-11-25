@@ -19,7 +19,10 @@ PARKORA uses **ThemeParkManager by Supercent** as its primary gameplay reference
 - Buildable carousel, Ferris wheel, trees, and path tiles
 - Animated carousel and Ferris wheel
 - Visitor spawning, physical queue slots, sequential ride service, and exit behavior
-- Attraction queue capacity and load-aware visitor assignment
+- Attraction queue capacity and load-aware visitor assignment using estimated wait, ride condition, and visitor willingness to pay
+- Ticket-price value scoring affects ride choice and guest satisfaction
+- Ride panel reports estimated hourly throughput, queue occupancy, waiting time, and accumulated price-value feedback
+- Per-ride price-value feedback is saved and restored
 - Connected path grid with breadth-first routefinding to rides and back to the gate
 - Ride entrances must connect to the pedestrian path network
 - Guest patience, queue abandonment, individual satisfaction, positive/negative reviews, and a park rating that affects visitor demand
