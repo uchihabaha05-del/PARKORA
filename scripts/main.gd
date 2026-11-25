@@ -434,6 +434,10 @@ func _update_visitors(delta: float) -> void:
 		var person: Node3D = visitor["node"]
 		var ride_index: int = visitor["ride_index"]
 		if not is_instance_valid(person):
+			if ride_index >= 0 and ride_index < rides.size():
+				_remove_visitor_from_queue(ride_index, person.get_instance_id())
+				if visitor["state"] == "riding":
+					rides[ride_index]["busy"] = false
 			visitors.remove_at(i)
 			continue
 		if ride_index < 0 or ride_index >= rides.size():
@@ -581,7 +585,15 @@ func _update_hud() -> void:
 	if coins_label != null:
 		coins_label.text = "PARKORA   🪙 " + _format_number(coins)
 	if visitors_label != null:
-		visitors_label.text = "👥 " + str(visitors.size()) + " / " + str(MAX_VISITORS) + "    Всего гостей: " + str(total_visitors)
+		visitors_label.text = "👥 " + str(visitors.size()) + " / " + str(MAX_VISITORS) + "    Всего гостей: " + str(total_visitors) + "    В очередях: " + str(_total_queued_visitors())
+
+
+func _total_queued_visitors() -> int:
+	var total := 0
+	for ride in rides:
+		var queue: Array = ride["queue"]
+		total += queue.size()
+	return total
 
 
 func _format_number(value: int) -> String:
