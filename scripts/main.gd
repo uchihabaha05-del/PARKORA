@@ -22,7 +22,10 @@ var path_cells: Dictionary = {}
 var spawn_timer := 1.0
 var total_visitors := 0
 var total_income := 0
+var total_expenses := 0
+var maintenance_timer := 10.0
 var park_rating := 50.0
+var economy_label: Label
 
 var grass_material: StandardMaterial3D
 var path_material: StandardMaterial3D
@@ -51,6 +54,7 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	_update_visitors(delta)
 	_animate_rides(delta)
+	_update_economy(delta)
 	spawn_timer -= delta
 	if spawn_timer <= 0.0:
 		spawn_timer = _visitor_spawn_interval()
@@ -183,6 +187,12 @@ func _create_ui() -> void:
 	hint_label.add_theme_font_size_override("font_size", 16)
 	hint_label.add_theme_color_override("font_color", Color.WHITE)
 	root.add_child(hint_label)
+
+	economy_label = Label.new()
+	economy_label.position = Vector2(24, 116)
+	economy_label.add_theme_font_size_override("font_size", 15)
+	economy_label.add_theme_color_override("font_color", Color("#fff0cf"))
+	root.add_child(economy_label)
 
 	var panel := PanelContainer.new()
 	panel.anchor_left = 0.5
@@ -376,6 +386,26 @@ func _animate_rides(delta: float) -> void:
 				node.rotate_y(delta * 0.75)
 			else:
 				node.rotate_z(delta * 0.22)
+
+
+
+func _update_economy(delta: float) -> void:
+	maintenance_timer -= delta
+	if maintenance_timer > 0.0:
+		return
+	maintenance_timer = 10.0
+	var upkeep := rides.size() * 3
+	if upkeep <= 0:
+		return
+	total_expenses += upkeep
+	if coins >= upkeep:
+		coins -= upkeep
+		_set_hint("Обслуживание аттракционов: −🪙 " + str(upkeep))
+	else:
+		coins = 0
+		park_rating = maxf(0.0, park_rating - 1.0)
+		_set_hint("Не хватает монет на обслуживание! Рейтинг парка снижается")
+	_update_hud()
 
 
 func _visitor_spawn_interval() -> float:
@@ -692,6 +722,9 @@ func _update_hud() -> void:
 		coins_label.text = "PARKORA   🪙 " + _format_number(coins)
 	if visitors_label != null:
 		visitors_label.text = "👥 " + str(visitors.size()) + " / " + str(MAX_VISITORS) + "    Всего: " + str(total_visitors) + "    ⭐ " + str(roundi(park_rating)) + "    В очередях: " + str(_total_queued_visitors())
+	if economy_label != null:
+		var net_profit := total_income - total_expenses
+		economy_label.text = "Выручка: 🪙 " + _format_number(total_income) + "   Расходы: 🪙 " + _format_number(total_expenses) + "   Прибыль: 🪙 " + _format_number(net_profit)
 
 
 func _total_queued_visitors() -> int:
