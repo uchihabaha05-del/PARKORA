@@ -22,7 +22,9 @@ PARKORA uses **ThemeParkManager by Supercent** as its primary gameplay reference
 - Attraction queue capacity and load-aware visitor assignment
 - Connected path grid with breadth-first routefinding to rides and back to the gate
 - Ride entrances must connect to the pedestrian path network
-- Guest patience, queue abandonment, and a park rating that affects visitor demand
+- Guest patience, queue abandonment, individual satisfaction, positive/negative reviews, and a park rating that affects visitor demand
+- Visitor satisfaction reacts to queue waiting, unmet needs, ride completion, service use, park cleanliness, and attraction condition
+- Aggregated guest satisfaction and review counts persist in local saves and influence visitor spawn demand
 - Connected path grid with breadth-first routefinding for visitors
 - Attractions require a nearby connected pedestrian path
 - Coin economy with entrance and ride ticket income
