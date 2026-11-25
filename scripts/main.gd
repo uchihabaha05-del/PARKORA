@@ -258,7 +258,7 @@ func _create_ui() -> void:
 func _create_staff_panel(root: Control) -> void:
 	var panel := PanelContainer.new()
 	panel.position = Vector2(24, 148)
-	panel.custom_minimum_size = Vector2(270, 126)
+	panel.custom_minimum_size = Vector2(290, 146)
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0.07, 0.13, 0.17, 0.9)
 	style.set_corner_radius_all(10)
