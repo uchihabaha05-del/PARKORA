@@ -41,6 +41,8 @@ The player starts with a small, underdeveloped amusement park and personally tur
 - Core needs: fun, hunger, thirst, rest, hygiene/toilet, and comfort.
 - Visitors select facilities based on their needs, price, distance, waiting time, and availability.
 - Visitors can become dissatisfied, leave early, or recommend the park when their experience is good.
+- Each guest has an individual satisfaction score affected by queue patience, unmet needs, completed rides, service use, cleanliness, and attraction condition.
+- Aggregate satisfaction and positive/negative review totals persist between sessions; satisfaction influences reputation and visitor demand.
 - Crowd flow and queue lengths must influence decisions.
 
 ### 4. Services and staff
@@ -75,4 +77,4 @@ The player starts with a small, underdeveloped amusement park and personally tur
 
 ## Current implementation status
 
-PARKORA is still a prototype. It currently has a procedural park, path-based routefinding, two rides, visitor queues, configurable ride prices and upgrades, attraction condition and repair, food/drink kiosks, individual hunger/thirst needs, buildable toilets and rest areas, individual hygiene/rest needs, visitor-paid facility use, cleaner and mechanic hiring, litter and cleanliness simulation, recurring staff wages and facility upkeep, automatic mechanic maintenance, categorized lifetime income and operating expenses, a rolling one-minute profit report, six sequential rewarded park objectives with saved progress, three purchasable land expansions with ownership-gated construction, capped eight-hour offline earnings with operating expenses and attraction wear, and local save/restore of built objects and park finances. These systems are scaffolding, not the final management simulation. Runtime validation in Godot is still required.
+PARKORA is still a prototype. It currently has a procedural park, path-based routefinding, two rides, visitor queues, configurable ride prices and upgrades, attraction condition and repair, food/drink kiosks, individual hunger/thirst needs, buildable toilets and rest areas, individual hygiene/rest needs, visitor-paid facility use, cleaner and mechanic hiring, litter and cleanliness simulation, recurring staff wages and facility upkeep, automatic mechanic maintenance, categorized lifetime income and operating expenses, individual guest satisfaction with persistent review statistics and demand feedback, a rolling one-minute profit report, six sequential rewarded park objectives with saved progress, three purchasable land expansions with ownership-gated construction, capped eight-hour offline earnings with operating expenses and attraction wear, and local save/restore of built objects and park finances. These systems are scaffolding, not the final management simulation. Runtime validation in Godot is still required.
