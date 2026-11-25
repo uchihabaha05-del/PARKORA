@@ -36,6 +36,9 @@ var period_expenses := 0
 var reporting_timer := 60.0
 var objective_index := 0
 var objective_label: Label
+var land_expansions := 0
+var land_button: Button
+var land_label: Label
 var maintenance_timer := 10.0
 var save_timer := 15.0
 var built_objects: Array[Dictionary] = []
@@ -267,6 +270,7 @@ func _create_ui() -> void:
 	_create_ride_management_panel(root)
 	_create_staff_panel(root)
 	_create_objective_panel(root)
+	_create_land_panel(root)
 
 
 func _create_staff_panel(root: Control) -> void:
@@ -380,6 +384,112 @@ func _update_objectives() -> void:
 		_update_hud()
 		_save_game()
 		_set_hint("Цель выполнена! Награда: +🪙 " + _format_number(reward))
+
+
+func _create_land_panel(root: Control) -> void:
+	var panel := PanelContainer.new()
+	panel.position = Vector2(24, 450)
+	panel.custom_minimum_size = Vector2(290, 92)
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.07, 0.13, 0.17, 0.9)
+	style.set_corner_radius_all(10)
+	style.content_margin_left = 10
+	style.content_margin_right = 10
+	style.content_margin_top = 7
+	style.content_margin_bottom = 7
+	panel.add_theme_stylebox_override("panel", style)
+	root.add_child(panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 4)
+	panel.add_child(column)
+	land_label = Label.new()
+	land_label.add_theme_color_override("font_color", Color.WHITE)
+	column.add_child(land_label)
+	land_button = Button.new()
+	land_button.custom_minimum_size = Vector2(0, 34)
+	land_button.pressed.connect(_buy_land_expansion)
+	column.add_child(land_button)
+	_update_land_panel()
+
+
+func _land_expansion_cost() -> int:
+	match land_expansions:
+		0:
+			return 3000
+		1:
+			return 4500
+		2:
+			return 6000
+	return 0
+
+
+func _update_land_panel() -> void:
+	if land_label == null or land_button == null:
+		return
+	if land_expansions >= 3:
+		land_label.text = "🌳 Вся доступная территория открыта"
+		land_button.text = "Все участки куплены"
+		land_button.disabled = true
+	else:
+		var cost := _land_expansion_cost()
+		var names := ["Северный участок", "Западный участок", "Восточный участок"]
+		land_label.text = "🗺️ Участки: " + str(land_expansions) + "/3"
+		land_button.text = "Открыть " + names[land_expansions] + " • 🪙 " + _format_number(cost)
+		land_button.disabled = coins < cost
+
+
+func _buy_land_expansion() -> void:
+	if land_expansions >= 3:
+		return
+	var cost := _land_expansion_cost()
+	if coins < cost:
+		_set_hint("Не хватает монет для покупки участка")
+		return
+	coins -= cost
+	_create_land_zone(land_expansions)
+	land_expansions += 1
+	_update_land_panel()
+	_update_hud()
+	_save_game()
+	_set_hint("Новый участок парка открыт! Проложи дорожки к новой территории")
+
+
+func _create_land_zone(zone_index: int) -> void:
+	var min_x := -10.0
+	var max_x := 10.0
+	var min_z := -26.0
+	var max_z := -8.0
+	if zone_index == 1:
+		min_x = -28.0
+		max_x = -10.0
+		min_z = -6.0
+		max_z = 22.0
+	elif zone_index == 2:
+		min_x = 10.0
+		max_x = 28.0
+		min_z = -6.0
+		max_z = 22.0
+	var width := max_x - min_x
+	var depth := max_z - min_z
+	var center_x := (min_x + max_x) * 0.5
+	var center_z := (min_z + max_z) * 0.5
+	_add_box(Vector3(center_x, 0.055, min_z), Vector3(width, 0.12, 0.22), yellow_material)
+	_add_box(Vector3(center_x, 0.055, max_z), Vector3(width, 0.12, 0.22), yellow_material)
+	_add_box(Vector3(min_x, 0.055, center_z), Vector3(0.22, 0.12, depth), yellow_material)
+	_add_box(Vector3(max_x, 0.055, center_z), Vector3(0.22, 0.12, depth), yellow_material)
+
+
+func _is_position_in_owned_land(position: Vector3) -> bool:
+	if position.x >= -10.0 and position.x <= 10.0 and position.z >= -8.0 and position.z <= 22.0:
+		return true
+	for zone_index in range(land_expansions):
+		if zone_index == 0 and position.x >= -10.0 and position.x <= 10.0 and position.z >= -26.0 and position.z <= -8.0:
+			return true
+		if zone_index == 1 and position.x >= -28.0 and position.x <= -10.0 and position.z >= -6.0 and position.z <= 22.0:
+			return true
+		if zone_index == 2 and position.x >= 10.0 and position.x <= 28.0 and position.z >= -6.0 and position.z <= 22.0:
+			return true
+	return false
 
 
 func _hire_cleaner() -> void:
@@ -730,6 +840,9 @@ func _try_place(screen_position: Vector2) -> void:
 
 func _place_selected(position: Vector3) -> void:
 	var cost: int = BUILD_COSTS.get(selected_build, 0)
+	if not _is_position_in_owned_land(position):
+		_set_hint("Эта территория закрыта. Сначала купи новый участок")
+		return
 	if coins < cost:
 		_set_hint("Не хватает монет для строительства")
 		return
@@ -873,6 +986,9 @@ func _load_game() -> void:
 	period_expenses = int(config.get_value("economy", "period_expenses", 0))
 	reporting_timer = float(config.get_value("economy", "reporting_timer", 60.0))
 	objective_index = clampi(int(config.get_value("economy", "objective_index", 0)), 0, 6)
+	land_expansions = clampi(int(config.get_value("park", "land_expansions", 0)), 0, 3)
+	for zone_index in range(land_expansions):
+		_create_land_zone(zone_index)
 	park_rating = float(config.get_value("park", "park_rating", 50.0))
 	cleaners = int(config.get_value("park", "cleaners", 0))
 	mechanics = int(config.get_value("park", "mechanics", 0))
@@ -920,6 +1036,7 @@ func _save_game() -> void:
 	config.set_value("park", "total_visitors", total_visitors)
 	config.set_value("park", "total_income", total_income)
 	config.set_value("park", "total_expenses", total_expenses)
+	config.set_value("park", "land_expansions", land_expansions)
 	config.set_value("economy", "admission_income", admission_income)
 	config.set_value("economy", "ride_income", ride_income)
 	config.set_value("economy", "service_income", service_income)
@@ -1487,6 +1604,7 @@ func _update_hud() -> void:
 		staff_label.text = "🧹 Уборщики: " + str(cleaners) + "   🔧 Механики: " + str(mechanics) + "\nМусор: " + str(litter_nodes.size()) + "   🚻 " + str(_count_facilities("toilet")) + "   🪑 " + str(_count_facilities("rest"))
 	if hire_cleaner_button != null:
 		hire_cleaner_button.disabled = coins < 300
+	_update_land_panel()
 	if hire_mechanic_button != null:
 		hire_mechanic_button.disabled = coins < 500
 	if economy_label != null:
