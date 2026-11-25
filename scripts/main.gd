@@ -863,7 +863,7 @@ func _update_visitors(delta: float) -> void:
 				total_income += ride_price
 				park_rating = minf(100.0, park_rating + 1.5)
 				_update_hud()
-				_set_hint("Катание завершено! +🪙 " + str(RIDE_TICKET_PRICE))
+				_set_hint("Катание завершено! +🪙 " + str(ride_price))
 				_send_visitor_to_service(visitor, person)
 		elif visitor["state"] == "walking_to_shop":
 			var shop_route: Array = visitor["route"]
