@@ -1368,9 +1368,8 @@ func _find_best_ride(willingness_to_pay: int) -> int:
 		var effective_duration := float(ride.get("ride_duration", 4.0))
 		if condition < 50.0:
 			effective_duration *= 1.25
+		# The active rider is already included in queue.size(), so do not count it twice.
 		var estimated_wait := float(queue.size()) * effective_duration
-		if bool(ride.get("busy", false)):
-			estimated_wait += effective_duration
 		var price_score := _ride_price_value_score(ticket_price, willingness_to_pay)
 		var condition_penalty := (100.0 - condition) * 0.025
 		var load := estimated_wait + (100.0 - price_score) * 0.12 + condition_penalty
